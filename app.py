@@ -6,8 +6,8 @@ import streamlit as st
 
 # Page Configuration
 st.set_page_config(
-    page_title="Online Attendance System (Google Sheets)",
-    page_icon="📋",
+    page_title="OASIS",
+    
     layout="wide",
 )
 
@@ -59,7 +59,7 @@ def load_attendance():
     return df
 
 
-st.title("📋 Online Attendance Management System (Google Sheets Connected)")
+st.title("OASIS")
 st.markdown("---")
 
 # Sidebar Navigation
