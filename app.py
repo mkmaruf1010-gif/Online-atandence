@@ -84,7 +84,7 @@ if menu == "Mark Attendance":
 
     if df_students.empty or "Student ID" not in df_students.columns:
         st.warning(
-            "No students found or missing 'Student ID' column in the 'Students' sheet! Please check your Google Sheet headers: [Student ID, Name, Department, Academic Year]."
+            "No students found or missing 'Student ID' column in the 'Students' sheet! Please check your Google Sheet headers: [Student ID, Name, Session, Academic Year]."
         )
     else:
         # Filter by Academic Year first to mark easily
@@ -206,7 +206,7 @@ elif menu == "Register Student":
                     st.error(f"Student ID '{student_id}' already exists!")
                 else:
                     students_worksheet.append_row(
-                        [str(student_id), name, department, academic_year]
+                        [str(student_id), name, Session, academic_year]
                     )
                     st.success(
                         f"Student {name} (ID: {student_id}, {academic_year}) successfully added!"
@@ -322,7 +322,7 @@ elif menu == "Student Percentage Checker":
                     f"Report for: {student_row['Name']} (ID: {selected_student_id})"
                 )
                 st.write(
-                    f"**Department:** {student_row.get('Department', 'N/A')} | **Year:** {student_row['Academic Year']}"
+                    f"**Session:** {student_row.get('Session', 'N/A')} | **Year:** {student_row['Academic Year']}"
                 )
 
                 if df_attendance.empty or "Student ID" not in df_attendance.columns:
