@@ -337,7 +337,7 @@ elif menu == "Student Percentage Checker":
                     f"Report for: {student_row['Name']} (ID: {selected_student_id})"
                 )
                 st.write(
-                    f"**Session:** {student_row.get('Session', 'N/A')} | **Year:** {student_row['Academic Year']}"
+                    f"**Department:** {student_row.get('Department', 'N/A')} | **Year:** {student_row['Academic Year']}"
                 )
 
                 if df_attendance.empty or "Student ID" not in df_attendance.columns:
