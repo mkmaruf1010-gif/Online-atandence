@@ -86,7 +86,7 @@ if menu in protected_pages:
         st.warning("Please enter the password to access this section.")
 
         entered_password = st.text_input(
-            "12345", type="password"
+            "Enter Admin Password", type="password"
         )
 
         if st.button("Login"):
