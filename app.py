@@ -32,7 +32,7 @@ def init_connection():
 
 try:
     client = init_connection()
-    sheet = client.open("OASIS")
+    sheet = client.open("AttendanceDB")
     students_worksheet = sheet.worksheet("Students")
     attendance_worksheet = sheet.worksheet("Attendance")
 except Exception as e:
@@ -59,7 +59,7 @@ def load_attendance():
     return df
 
 
-st.title("OASIS")
+st.title("📋 Online Attendance Management System (Google Sheets Connected)")
 st.markdown("---")
 
 # Sidebar Navigation
@@ -117,7 +117,7 @@ if menu == "Mark Attendance":
             for index, row in filtered_students.iterrows():
                 s_id = str(row["Student ID"])
                 s_name = row["Name"]
-                s_dept = (
+                s_session = (
                     row["Session"]
                     if "Session" in df_students.columns
                     else ""
@@ -176,8 +176,8 @@ elif menu == "Register Student":
         student_id = st.text_input("Student ID")
         name = st.text_input("Full Name")
         department = st.selectbox(
-            "Sessiont",
-            [
+            "Session",
+           [
                 "2021-22",
                 "2022-23",
                 "2023-24",
@@ -221,12 +221,11 @@ elif menu == "Register Student":
                     st.error(f"Student ID '{student_id}' already exists!")
                 else:
                     students_worksheet.append_row(
-                        [str(student_id), name, Session, academic_year]
+                        [str(student_id), name, department, academic_year]
                     )
                     st.success(
                         f"Student {name} (ID: {student_id}, {academic_year}) successfully added!"
                     )
-
 # -------------------------------------------------------------
 # 3. VIEW RECORDS & ANALYTICS
 # -------------------------------------------------------------
