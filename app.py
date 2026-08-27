@@ -78,7 +78,7 @@ menu = st.sidebar.selectbox(
 # 1. MARK ATTENDANCE
 # -------------------------------------------------------------
 if menu == "Mark Attendance":
-    st.header("📌 Mark Daily Attendance")
+    st.header("Mark Daily Attendance")
 
     df_students = load_students()
 
@@ -170,7 +170,7 @@ if menu == "Mark Attendance":
 # 2. REGISTER STUDENT
 # -------------------------------------------------------------
 elif menu == "Register Student":
-    st.header("➕ Register a New Student")
+    st.header("Register a New Student")
 
     with st.form("student_form"):
         student_id = st.text_input("Student ID")
@@ -230,7 +230,7 @@ elif menu == "Register Student":
 # 3. VIEW RECORDS & ANALYTICS
 # -------------------------------------------------------------
 elif menu == "View Records":
-    st.header("📊 Attendance Records & Reports")
+    st.header("Attendance Records & Reports")
 
     df_attendance = load_attendance()
 
@@ -261,7 +261,7 @@ elif menu == "View Records":
 
         csv = filtered_df.to_csv(index=False).encode("utf-8")
         st.download_button(
-            label="📥 Download Attendance as CSV",
+            label="Download Attendance as CSV",
             data=csv,
             file_name="attendance_report.csv",
             mime="text/csv",
@@ -271,7 +271,7 @@ elif menu == "View Records":
 # 4. MANAGE STUDENTS
 # -------------------------------------------------------------
 elif menu == "Manage Students":
-    st.header("⚙️ Student Directory")
+    st.header("Student Directory")
 
     df_students = load_students()
 
@@ -301,7 +301,7 @@ elif menu == "Manage Students":
 # 5. STUDENT PERCENTAGE CHECKER
 # -------------------------------------------------------------
 elif menu == "Student Percentage Checker":
-    st.header("📈 Individual Attendance Percentage Checker")
+    st.header("Individual Attendance Percentage Checker")
 
     df_students = load_students()
     df_attendance = load_attendance()
