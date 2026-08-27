@@ -82,7 +82,7 @@ if menu in protected_pages:
         st.session_state.authenticated = False
 
     if not st.session_state.authenticated:
-        st.header(f" Admin Access Required)
+        st.header(f" Admin Access Required")
         st.warning("Please enter the password to access this section.")
 
         entered_password = st.text_input(
