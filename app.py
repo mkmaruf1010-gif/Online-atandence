@@ -59,7 +59,7 @@ def load_attendance():
     return df
 
 
-st.title("📋 Online Attendance Management System (Google Sheets Connected)")
+st.title("OASIS")
 st.markdown("---")
 
 # Sidebar Navigation
@@ -118,8 +118,8 @@ if menu == "Mark Attendance":
                 s_id = str(row["Student ID"])
                 s_name = row["Name"]
                 s_dept = (
-                    row["Department"]
-                    if "Department" in df_students.columns
+                    row["Session"]
+                    if "Session" in df_students.columns
                     else ""
                 )
 
@@ -134,7 +134,7 @@ if menu == "Mark Attendance":
                 with col2:
                     st.write(f"**{s_name}** *(ID: {s_id})*")
                 with col3:
-                    st.write(f"Dept: {s_dept}")
+                    st.write(f"Session: {s_session}")
 
                 attendance_status[s_id] = {
                     "Name": s_name,
@@ -176,13 +176,28 @@ elif menu == "Register Student":
         student_id = st.text_input("Student ID")
         name = st.text_input("Full Name")
         department = st.selectbox(
-            "Department",
+            "Sessiont",
             [
-                "Geography and Environment",
-                "Computer Science",
-                "Environmental Science",
-                "Data Science",
-                "Other",
+                "2021-22",
+                "2022-23",
+                "2023-24",
+                "2024-25",
+                "2025-26",
+                "2026-27",
+                "2027-28",
+                "2028-29",
+                "2029-30",
+                "2030-31",
+                "2031-32",
+                "2032-33",
+                "2033-34",
+                "2034-35",
+                "2035-36",
+                "2036-37",
+                "2037-38",
+                "2038-39",
+                "2039-40",
+                "You need to add ",
             ],
         )
         academic_year = st.selectbox(
