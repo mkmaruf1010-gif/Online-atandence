@@ -7,7 +7,6 @@ import streamlit as st
 # Page Configuration
 st.set_page_config(
     page_title="OASIS",
-    
     layout="wide",
 )
 
@@ -45,7 +44,6 @@ except Exception as e:
 def load_students():
     data = students_worksheet.get_all_records()
     df = pd.DataFrame(data)
-    # Normalize column names if needed
     if not df.empty:
         df.columns = df.columns.str.strip()
     return df
@@ -75,6 +73,40 @@ menu = st.sidebar.selectbox(
 )
 
 # -------------------------------------------------------------
+# PASSWORD PROTECTION CHECK FOR ADMIN PAGES
+# -------------------------------------------------------------
+protected_pages = ["Mark Attendance", "Register Student", "Manage Students"]
+
+if menu in protected_pages:
+    if "authenticated" not in st.session_state:
+        st.session_state.authenticated = False
+
+    if not st.session_state.authenticated:
+        st.header(f"🔒 Admin Access Required: {menu}")
+        st.warning("Please enter the password to access this section.")
+
+        entered_password = st.text_input(
+            "Enter Admin Password", type="password"
+        )
+
+        if st.button("Login"):
+            if entered_password == st.secrets.get(
+                "admin_password", "default_password"
+            ):
+                st.session_state.authenticated = True
+                st.success("Access granted!")
+                st.rerun()
+            else:
+                st.error("Incorrect password. Access denied.")
+        st.stop()  # Stop execution here until authenticated
+    else:
+        # Option to log out / lock again from sidebar or page
+        if st.sidebar.button("Lock Admin Session"):
+            st.session_state.authenticated = False
+            st.rerun()
+
+
+# -------------------------------------------------------------
 # 1. MARK ATTENDANCE
 # -------------------------------------------------------------
 if menu == "Mark Attendance":
@@ -87,7 +119,6 @@ if menu == "Mark Attendance":
             "No students found or missing 'Student ID' column in the 'Students' sheet! Please check your Google Sheet headers: [Student ID, Name, Session, Academic Year]."
         )
     else:
-        # Filter by Academic Year first to mark easily
         academic_years = (
             df_students["Academic Year"].unique()
             if "Academic Year" in df_students.columns
@@ -177,7 +208,7 @@ elif menu == "Register Student":
         name = st.text_input("Full Name")
         department = st.selectbox(
             "Session",
-           [
+            [
                 "2021-22",
                 "2022-23",
                 "2023-24",
@@ -197,7 +228,6 @@ elif menu == "Register Student":
                 "2037-38",
                 "2038-39",
                 "2039-40",
-                "You need to add ",
             ],
         )
         academic_year = st.selectbox(
@@ -226,6 +256,7 @@ elif menu == "Register Student":
                     st.success(
                         f"Student {name} (ID: {student_id}, {academic_year}) successfully added!"
                     )
+
 # -------------------------------------------------------------
 # 3. VIEW RECORDS & ANALYTICS
 # -------------------------------------------------------------
