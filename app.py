@@ -32,7 +32,7 @@ def init_connection():
 
 try:
     client = init_connection()
-    sheet = client.open("AttendanceDB")
+    sheet = client.open("OASIS")
     students_worksheet = sheet.worksheet("Students")
     attendance_worksheet = sheet.worksheet("Attendance")
 except Exception as e:
