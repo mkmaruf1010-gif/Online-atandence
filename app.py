@@ -75,9 +75,6 @@ menu = st.sidebar.selectbox(
 # -------------------------------------------------------------
 # PASSWORD PROTECTION CHECK FOR ADMIN PAGES
 # -------------------------------------------------------------
-# -------------------------------------------------------------
-# PASSWORD PROTECTION CHECK FOR ADMIN PAGES
-# -------------------------------------------------------------
 protected_pages = ["Mark Attendance", "Register Student", "Manage Students"]
 
 if menu in protected_pages:
@@ -92,10 +89,18 @@ if menu in protected_pages:
             "Enter Admin Password", type="password"
         )
 
-        if st.button("Login"):
-            if entered_password == st.secrets.get(
-                "admin_password", "default_password"
-            ):
+       if st.button("Login"):
+            # সিক্রেটস থেকে পাসওয়ার্ড নিয়ে সেটিকে সেফলি লিস্টে কনভার্ট করা
+            raw_passwords = st.secrets.get("admin_password", ["default_password"])
+            
+            if isinstance(raw_passwords, str):
+                valid_passwords = [raw_passwords]
+            else:
+                # এটি লিস্ট বা অন্য কোনো ইটারেবল হলে তাকে পাইথনের রিয়েল লিস্ট বানাবে
+                valid_passwords = [str(p) for p in raw_passwords]
+
+            # চেক করা ইউজার ইনপুট লিস্টের ভেতর আছে কি না
+            if entered_password in valid_passwords:
                 st.session_state.authenticated = True
                 st.success("Access granted!")
                 st.rerun()
