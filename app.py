@@ -82,25 +82,17 @@ if menu in protected_pages:
         st.session_state.authenticated = False
 
     if not st.session_state.authenticated:
-        st.header("Admin Access Required")
+        st.header(f" Admin Access Required")
         st.warning("Please enter the password to access this section.")
 
         entered_password = st.text_input(
             "Enter Admin Password", type="password"
         )
 
-       if st.button("Login"):
-            # সিক্রেটস থেকে পাসওয়ার্ড নিয়ে সেটিকে সেফলি লিস্টে কনভার্ট করা
-            raw_passwords = st.secrets.get("admin_password", ["default_password"])
-            
-            if isinstance(raw_passwords, str):
-                valid_passwords = [raw_passwords]
-            else:
-                # এটি লিস্ট বা অন্য কোনো ইটারেবল হলে তাকে পাইথনের রিয়েল লিস্ট বানাবে
-                valid_passwords = [str(p) for p in raw_passwords]
-
-            # চেক করা ইউজার ইনপুট লিস্টের ভেতর আছে কি না
-            if entered_password in valid_passwords:
+        if st.button("Login"):
+            if entered_password == st.secrets.get(
+                "admin_password", "default_password"
+            ):
                 st.session_state.authenticated = True
                 st.success("Access granted!")
                 st.rerun()
@@ -112,6 +104,8 @@ if menu in protected_pages:
         if st.sidebar.button("Lock Admin Session"):
             st.session_state.authenticated = False
             st.rerun()
+
+
 # -------------------------------------------------------------
 # 1. MARK ATTENDANCE
 # -------------------------------------------------------------
@@ -137,36 +131,30 @@ if menu == "Mark Attendance":
         # ইয়ার অনুযায়ী কোর্সসমূহের তালিকা
         year_courses = {
             "1st Year": [
-                "GETh-1001: Geographical Thoughts and Concepts",
-               "GETh-1002: Introduction to Physical Geography",
-              "GETh-1003: Introduction to Human Geography",
-                "GETh-1004:Concept of Region and World Regional Pattern",
+                "GE-1101: Physical Geography",
+                "GE-1102: Introduction to Environmental Science",
+                "GE-1103: General Economics & Human Geography",
+                "GE-1104: Practical: Cartography & Map Reading"
             ],
             "2nd Year": [
-                "GETh:2001:Environmental Chemistry",
-                "GETh:2002:Geomorphology",
-                 "GETh:2003:Climatology ",
-                 "GETh:2004:Economic Geography",
-                 "GETh:2005:Quantitative Techniques in Geography - I",
-                 "GETh:2006:Environmental Chemistry",
+                "GE-2101: Climatology & Oceanography",
+                "GE-2102: Biogeography & Soil Geography",
+                "GE-2103: Population & Settlement Geography",
+                "GE-2104: Practical: Surveying & Leveling"
             ],
             "3rd Year": [
-                "GETh: 3001 :Oceanography",
-                "GETh: 3002 :Geography of Soil ",
-                "GETh: 3003 :Biogeography ",
-                "GETh: 3004 :Population Geography ",
-                "GETh: 3005 :Geography of Settlement ",
-                "GETh: 3006 :Geography of Bangladesh ",
+                "GE-3101: Geomorphology",
+                "GE-3102: Remote Sensing & GIS Basics",
+                "GE-3103: Urban Geography",
+                "GE-3104: Agricultural & Industrial Geography",
+                "GE-3105: Practical: GIS & Air Photo Interpretation"
             ],
             "4th Year": [
-                "GETh-4001: Hydrology and Fluvial Morphology",
-                "GETh-4002: Disaster Management",
-                "GETh-4003: Regional Geography and Environment of South Asia ",
-                "GETh-4004: Transport Geography",
-                "GETh-4005: Urban Geography ",
-                "GETh-4006: Political Geography ",
-                 "GETh-4007: Quantitative Techniques in Geography - II ",
-                
+                "GE-4101: Environmental Impact Assessment (EIA)",
+                "GE-4102: Disaster Management & Mitigation",
+                "GE-4103: Biogeography & Resource Management",
+                "GE-4104: Research Methodology & Fieldwork",
+                "GE-4105: Practical / Project Work"
             ]
         }
 
