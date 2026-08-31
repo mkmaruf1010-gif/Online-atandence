@@ -85,25 +85,19 @@ if menu in protected_pages:
         st.header(f" Admin Access Required")
         st.warning("Please enter the password to access this section.")
 
-       entered_password = st.text_input("Enter Admin Password", type="password")
+        entered_password = st.text_input(
+            "Enter Admin Password", type="password"
+        )
 
-if st.button("Login"):
-    # সিক্রেটস থেকে পাসওয়ার্ডগুলো লোড করা (স্ট্রিং বা লিস্ট হতে পারে)
-    saved_passwords = st.secrets.get("admin_password", ["default_password"])
-    
-    # যদি একটিমাত্র পাসওয়ার্ড স্ট্রিং আকারে থাকে, সেটাকে লিস্টে কনভার্ট করে নেওয়া
-    if isinstance(saved_passwords, str):
-        valid_passwords = [saved_passwords]
-    else:
-        valid_passwords = list(saved_passwords)
-
-    # ইউজার যেই পাসওয়ার্ড দিয়েছে তা লিস্টের কোনোটার সাথে মিলছে কি না চেক করা
-    if entered_password in valid_passwords:
-        st.session_state.authenticated = True
-        st.success("Access granted!")
-        st.rerun()
-    else:
-        st.error("Incorrect password. Access denied.")
+        if st.button("Login"):
+            if entered_password == st.secrets.get(
+                "admin_password", "default_password"
+            ):
+                st.session_state.authenticated = True
+                st.success("Access granted!")
+                st.rerun()
+            else:
+                st.error("Incorrect password. Access denied.")
         st.stop()  # Stop execution here until authenticated
     else:
         # Option to log out / lock again from sidebar or page
