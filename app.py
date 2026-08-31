@@ -131,10 +131,10 @@ if menu == "Mark Attendance":
         # ইয়ার অনুযায়ী কোর্সসমূহের তালিকা
         year_courses = {
             "1st Year": [
-                "GE-1101: Physical Geography",
-                "GE-1102: Introduction to Environmental Science",
-                "GE-1103: General Economics & Human Geography",
-                "GE-1104: Practical: Cartography & Map Reading"
+                "GETh-1001: Geographical Thoughts and Concepts",
+               "GETh-1002: Introduction to Physical Geography",
+              "GETh-1003: Introduction to Human Geography",
+                "GETh-1004:Concept of Region and World Regional Pattern",
             ],
             "2nd Year": [
                 "GE-2101: Climatology & Oceanography",
