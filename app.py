@@ -122,11 +122,45 @@ if menu == "Mark Attendance":
         academic_years = (
             df_students["Academic Year"].unique()
             if "Academic Year" in df_students.columns
-            else ["All"]
+            else ["1st Year", "2nd Year", "3rd Year", "4th Year"]
         )
         selected_year = st.selectbox(
             "Select Academic Year to Mark", academic_years
         )
+
+        # ইয়ার অনুযায়ী কোর্সসমূহের তালিকা
+        year_courses = {
+            "1st Year": [
+                "GE-1101: Physical Geography",
+                "GE-1102: Introduction to Environmental Science",
+                "GE-1103: General Economics & Human Geography",
+                "GE-1104: Practical: Cartography & Map Reading"
+            ],
+            "2nd Year": [
+                "GE-2101: Climatology & Oceanography",
+                "GE-2102: Biogeography & Soil Geography",
+                "GE-2103: Population & Settlement Geography",
+                "GE-2104: Practical: Surveying & Leveling"
+            ],
+            "3rd Year": [
+                "GE-3101: Geomorphology",
+                "GE-3102: Remote Sensing & GIS Basics",
+                "GE-3103: Urban Geography",
+                "GE-3104: Agricultural & Industrial Geography",
+                "GE-3105: Practical: GIS & Air Photo Interpretation"
+            ],
+            "4th Year": [
+                "GE-4101: Environmental Impact Assessment (EIA)",
+                "GE-4102: Disaster Management & Mitigation",
+                "GE-4103: Biogeography & Resource Management",
+                "GE-4104: Research Methodology & Fieldwork",
+                "GE-4105: Practical / Project Work"
+            ]
+        }
+
+        # সিলেক্টেড ইয়ারের আন্ডারে কোর্স ফিল্টার করা
+        available_courses = year_courses.get(selected_year, ["General Course"])
+        selected_course = st.selectbox("Select Course Code & Title", available_courses)
 
         filtered_students = df_students
         if (
@@ -139,8 +173,8 @@ if menu == "Mark Attendance":
 
         att_date = st.date_input("Select Date", value=date.today())
 
-        st.markdown(f"### Student List ({selected_year})")
-        st.info("Check the box next to the student if they are **Present**.")
+        st.markdown(f"### Student List for {selected_year} - {selected_course}")
+        st.info("Check the box next to the student if they are **Present**. (Unchecked means Absent)")
 
         with st.form("attendance_form"):
             attendance_status = {}
@@ -156,9 +190,10 @@ if menu == "Mark Attendance":
 
                 col1, col2, col3 = st.columns([1, 3, 2])
                 with col1:
+                    # ডিফল্টভাবে ব্ল্যাঙ্ক বা আনচেকড রাখার জন্য value=False দেওয়া হয়েছে
                     is_present = st.checkbox(
                         "Present",
-                        value=True,
+                        value=False,
                         key=f"att_{s_id}",
                         label_visibility="collapsed",
                     )
@@ -177,24 +212,22 @@ if menu == "Mark Attendance":
             if submitted:
                 df_attendance = load_attendance()
                 if not df_attendance.empty and "Date" in df_attendance.columns:
-                    df_attendance = df_attendance[
-                        df_attendance["Date"] != str(att_date)
-                    ]
+                    # একই তারিখ এবং নির্দিষ্ট কোর্সের আগের এন্ট্রি হ্যান্ডেল করার লজিক চাইলে রাখতে পারো
                     rows_to_save = [
                         df_attendance.columns.tolist()
                     ] + df_attendance.values.tolist()
                 else:
-                    rows_to_save = [["Date", "Student ID", "Name", "Status"]]
+                    rows_to_save = [["Date", "Course", "Student ID", "Name", "Status"]]
 
                 for s_id, data in attendance_status.items():
                     rows_to_save.append(
-                        [str(att_date), str(s_id), data["Name"], data["Status"]]
+                        [str(att_date), str(selected_course), str(s_id), data["Name"], data["Status"]]
                     )
 
                 attendance_worksheet.clear()
                 attendance_worksheet.update(rows_to_save)
                 st.success(
-                    f"Attendance successfully saved to Google Sheets for {att_date}!"
+                    f"Attendance successfully saved to Google Sheets for {selected_course} on {att_date}!"
                 )
 
 # -------------------------------------------------------------
