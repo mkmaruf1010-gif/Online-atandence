@@ -122,7 +122,7 @@ if menu == "Mark Attendance":
         academic_years = (
             df_students["Academic Year"].unique()
             if "Academic Year" in df_students.columns
-            else ["1st Year", "2nd Year", "3rd Year", "4th Year"]
+            else ["No","1st Year", "2nd Year", "3rd Year", "4th Year"]
         )
         selected_year = st.selectbox(
             "Select Academic Year to Mark", academic_years
