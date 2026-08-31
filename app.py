@@ -131,30 +131,34 @@ if menu == "Mark Attendance":
         # ইয়ার অনুযায়ী কোর্সসমূহের তালিকা
         year_courses = {
             "1st Year": [
-                "GE-1101: Physical Geography",
-                "GE-1102: Introduction to Environmental Science",
-                "GE-1103: General Economics & Human Geography",
-                "GE-1104: Practical: Cartography & Map Reading"
+                "GETh: 1001: Geographical Thoughts and Concepts"
+                "GETh: 1002: Introduction to Physical Geography"
+                "GETh: 1003: Introduction to Human Geography"
+                "GETh: 1004: Concept of Region and World Regional Pattern"
             ],
             "2nd Year": [
-                "GE-2101: Climatology & Oceanography",
-                "GE-2102: Biogeography & Soil Geography",
-                "GE-2103: Population & Settlement Geography",
-                "GE-2104: Practical: Surveying & Leveling"
+                "GETh: 2001: Environmental Chemistry""GETh: 2002: Geomorphology"
+                "GETh: 2003: Climatology"
+                "GETh: 2004: Economic Geography"
+                "GETh: 2005: Cultural Geography"
+                "GETh: 2006: Quantitative Techniques in Geography - I"
             ],
             "3rd Year": [
-                "GE-3101: Geomorphology",
-                "GE-3102: Remote Sensing & GIS Basics",
-                "GE-3103: Urban Geography",
-                "GE-3104: Agricultural & Industrial Geography",
-                "GE-3105: Practical: GIS & Air Photo Interpretation"
+                "GETh: 3001: Oceanography"
+                "GETh: 3002: Geography of Soil"
+                "GETh: 3003: Biogeography"
+                "GETh: 3004: Population Geography"
+                "GETh: 3005: Geography of Settlement"
+                "GETh: 3006: Geography of Bangladesh"
             ],
             "4th Year": [
-                "GE-4101: Environmental Impact Assessment (EIA)",
-                "GE-4102: Disaster Management & Mitigation",
-                "GE-4103: Biogeography & Resource Management",
-                "GE-4104: Research Methodology & Fieldwork",
-                "GE-4105: Practical / Project Work"
+                "GETh: 4001: Hydrology and Fluvial Morphology"
+                "GETh: 4002: Disaster Management"
+                "GETh: 4003: Regional Geography and Environment of South Asia"
+                "GETh: 4004: Transport Geography"
+                "GETh: 4005: Urban Geography"
+                "GETh: 4006: Political Geography"
+                "GELb: 4007: Quantitative Techniques in Geography - II"
             ]
         }
 
