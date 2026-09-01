@@ -82,7 +82,7 @@ if menu in protected_pages:
         st.session_state.authenticated = False
 
     if not st.session_state.authenticated:
-        st.header(f" Admin Access Required")
+        st.header(" Admin Access Required")
         st.warning("Please enter the password to access this section.")
 
         entered_password = st.text_input(
@@ -128,7 +128,7 @@ if menu == "Mark Attendance":
             "Select Academic Year to Mark", academic_years
         )
 
-        # ইয়ার অনুযায়ী কোর্সসমূহের তালিকা
+        # ইয়ার অনুযায়ী কোর্সসমূহের তালিকা
         year_courses = {
             "1st Year": [
                 "GETh: 1001: Geographical Thoughts and Concepts",
@@ -137,7 +137,8 @@ if menu == "Mark Attendance":
                 "GETh: 1004: Concept of Region and World Regional Pattern"
             ],
             "2nd Year": [
-                "GETh: 2001: Environmental Chemistry""GETh: 2002: Geomorphology",
+                "GETh: 2001: Environmental Chemistry",
+                "GETh: 2002: Geomorphology",
                 "GETh: 2003: Climatology",
                 "GETh: 2004: Economic Geography",
                 "GETh: 2005: Cultural Geography",
@@ -162,7 +163,7 @@ if menu == "Mark Attendance":
             ]
         }
 
-        # সিলেক্টেড ইয়ারের আন্ডারে কোর্স ফিল্টার করা
+        # সিলেক্টেড ইয়ারের আন্ডারে কোর্স ফিল্টার করা
         available_courses = year_courses.get(selected_year, ["General Course"])
         selected_course = st.selectbox("Select Course Code & Title", available_courses)
 
@@ -180,8 +181,43 @@ if menu == "Mark Attendance":
         st.markdown(f"### Student List for {selected_year} - {selected_course}")
         st.info("Check the box next to the student if they are **Present**. (Unchecked means Absent)")
 
+        # শুধুমাত্র অ্যাটেন্ডেন্স শিটের জন্য স্টুডেন্ট আইডি সর্টিং ড্রপডাউন
+        sort_order = st.selectbox(
+            "Sort Student ID by:",
+            ["Default", "Ascending (Low to High)", "Descending (High to Low)"],
+            key="attendance_id_sort"
+        )
+
+        filtered_students = filtered_students.copy()
+        if not filtered_students.empty and "Student ID" in filtered_students.columns:
+            try:
+                filtered_students["_sort_id"] = pd.to_numeric(filtered_students["Student ID"])
+            except:
+                filtered_students["_sort_id"] = filtered_students["Student ID"]
+
+            if sort_order == "Ascending (Low to High)":
+                filtered_students = filtered_students.sort_values(by="_sort_id", ascending=True)
+            elif sort_order == "Descending (High to Low)":
+                filtered_students = filtered_students.sort_values(by="_sort_id", ascending=False)
+            
+            if "_sort_id" in filtered_students.columns:
+                filtered_students = filtered_students.drop(columns=["_sort_id"])
+
         with st.form("attendance_form"):
             attendance_status = {}
+
+            # টেবিলের হেডার কলাম (আইডি আলাদা কলামে দেখানোর জন্য)
+            h_col1, h_col2, h_col3, h_col4 = st.columns([1, 2, 3, 2])
+            with h_col1:
+                st.markdown("**Present**")
+            with h_col2:
+                st.markdown("**Student ID**")
+            with h_col3:
+                st.markdown("**Name**")
+            with h_col4:
+                st.markdown("**Session**")
+            
+            st.markdown("---")
 
             for index, row in filtered_students.iterrows():
                 s_id = str(row["Student ID"])
@@ -192,9 +228,8 @@ if menu == "Mark Attendance":
                     else ""
                 )
 
-                col1, col2, col3 = st.columns([1, 3, 2])
+                col1, col2, col3, col4 = st.columns([1, 2, 3, 2])
                 with col1:
-                    # ডিফল্টভাবে ব্ল্যাঙ্ক বা আনচেকড রাখার জন্য value=False দেওয়া হয়েছে
                     is_present = st.checkbox(
                         "Present",
                         value=False,
@@ -202,9 +237,11 @@ if menu == "Mark Attendance":
                         label_visibility="collapsed",
                     )
                 with col2:
-                    st.write(f"**{s_name}** *(ID: {s_id})*")
+                    st.write(f"{s_id}")
                 with col3:
-                    st.write(f"Session: {s_session}")
+                    st.write(f"**{s_name}**")
+                with col4:
+                    st.write(f"{s_session}")
 
                 attendance_status[s_id] = {
                     "Name": s_name,
@@ -216,7 +253,6 @@ if menu == "Mark Attendance":
             if submitted:
                 df_attendance = load_attendance()
                 if not df_attendance.empty and "Date" in df_attendance.columns:
-                    # একই তারিখ এবং নির্দিষ্ট কোর্সের আগের এন্ট্রি হ্যান্ডেল করার লজিক চাইলে রাখতে পারো
                     rows_to_save = [
                         df_attendance.columns.tolist()
                     ] + df_attendance.values.tolist()
