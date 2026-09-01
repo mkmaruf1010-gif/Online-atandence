@@ -277,7 +277,7 @@ elif menu == "Register Student":
     st.header("Register a New Student")
 
     with st.form("student_form"):
-        student_id = st.text_input("Student ID(Roll)")
+        student_id = st.text_input("Student ID(Roll,eg:32006)")
         name = st.text_input("Full Name(In English)")
         department = st.selectbox(
             "Session",
