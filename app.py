@@ -75,7 +75,7 @@ menu = st.sidebar.selectbox(
 # -------------------------------------------------------------
 # PASSWORD PROTECTION CHECK FOR ADMIN PAGES
 # -------------------------------------------------------------
-protected_pages = ["Mark Attendance", "Register Student", "Manage Students"]
+protected_pages = ["Mark Attendance",  "Manage Students"]
 
 if menu in protected_pages:
     if "authenticated" not in st.session_state:
