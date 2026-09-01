@@ -184,7 +184,7 @@ if menu == "Mark Attendance":
         # শুধুমাত্র অ্যাটেন্ডেন্স শিটের জন্য স্টুডেন্ট আইডি সর্টিং ড্রপডাউন
         sort_order = st.selectbox(
             "Sort Student ID by:",
-            ["Default", "Ascending (Low to High)", "Descending (High to Low)"],
+            [ "Ascending (Low to High)", "Descending (High to Low)"],
             key="attendance_id_sort"
         )
 
