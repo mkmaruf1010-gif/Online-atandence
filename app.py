@@ -180,12 +180,26 @@ if menu == "Mark Attendance":
             "Check the box next to the student if they are **Present**. (Unchecked means **Absent**)"
         )
 
-        if filtered_students.empty:
+      if filtered_students.empty:
             st.warning(f"No students registered under {selected_year}.")
         else:
             with st.form("attendance_form"):
                 attendance_status = {}
 
+                # Table Header Columns
+                h_col1, h_col2, h_col3, h_col4 = st.columns([1.5, 3, 2, 1])
+                with h_col1:
+                    st.markdown("**Student ID**")
+                with h_col2:
+                    st.markdown("**Student Name**")
+                with h_col3:
+                    st.markdown("**Session**")
+                with h_col4:
+                    st.markdown("**Status**")
+
+                st.markdown("---")
+
+                # Student Rows
                 for index, row in filtered_students.iterrows():
                     s_id = str(row["Student ID"]).strip()
                     s_name = row["Name"]
@@ -193,55 +207,28 @@ if menu == "Mark Attendance":
                         row["Session"] if "Session" in df_students.columns else ""
                     )
 
-                    col1, col2, col3 = st.columns([1, 3, 2])
+                    col1, col2, col3, col4 = st.columns([1.5, 3, 2, 1])
                     with col1:
+                        st.write(s_id)
+                    with col2:
+                        st.write(f"**{s_name}**")
+                    with col3:
+                        st.write(s_session)
+                    with col4:
                         is_present = st.checkbox(
                             "Present",
                             value=False,
                             key=f"att_{s_id}",
                             label_visibility="collapsed",
                         )
-                    with col2:
-                        st.write(f"**{s_name}** *(ID: {s_id})*")
-                    with col3:
-                        st.write(f"Session: {s_session}")
 
                     attendance_status[s_id] = {
                         "Name": s_name,
                         "Status": "Present" if is_present else "Absent",
                     }
 
-                submitted = st.form_submit_button("Save Attendance")
-
-                if submitted:
-                    df_attendance = load_attendance()
-
-                    if df_attendance.empty:
-                        rows_to_save = [
-                            ["Date", "Course", "Student ID", "Name", "Status"]
-                        ]
-                    else:
-                        rows_to_save = [
-                            df_attendance.columns.tolist()
-                        ] + df_attendance.values.tolist()
-
-                    for s_id, data in attendance_status.items():
-                        rows_to_save.append(
-                            [
-                                str(att_date),
-                                str(selected_course),
-                                str(s_id),
-                                str(data["Name"]),
-                                str(data["Status"]),
-                            ]
-                        )
-
-                    attendance_worksheet.clear()
-                    attendance_worksheet.update(rows_to_save)
-
-                    st.success(
-                        f"Attendance successfully saved to Google Sheets for {selected_course} on {att_date}!"
-                    )
+                st.markdown("---")
+                submitted = st.form_submit_button("Save Attendance", use_container_width=True)
 # -------------------------------------------------------------
 # 2. REGISTER STUDENT
 # -------------------------------------------------------------
