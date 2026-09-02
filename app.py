@@ -58,7 +58,7 @@ def load_attendance():
 
 
 st.title("OASIS")
-st.markdown("---")
+st.markdown("Online Attendence System")
 
 # Sidebar Navigation
 menu = st.sidebar.selectbox(
