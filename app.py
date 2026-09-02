@@ -492,7 +492,7 @@ elif menu == "Student Percentage Checker":
         input_student_id = st.text_input(
             "Enter Your Student ID",
             value="",
-            placeholder="e.g., 32006",
+            placeholder="Roll",
             key="pct_input_id"
         ).strip()
 
@@ -548,7 +548,7 @@ elif menu == "Student Percentage Checker":
                 # DETAILED DATE-WISE ATTENDANCE LOG TABLE
                 # -------------------------------------------------------------
                 st.markdown("---")
-                st.subheader("📅 Detailed Date-wise Attendance Logs")
+                st.subheader(" Detailed Date-wise Attendance Logs")
 
                 if st_att.empty:
                     st.info("No detailed class records found for this student.")
