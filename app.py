@@ -127,6 +127,14 @@ if menu == "Mark Attendance":
         selected_year = st.selectbox(
             "Select Academic Year to Mark", academic_years
         )
+          Department = (
+            df_students["Department"].unique()
+            if "Department" in df_students.columns
+            else ["Geography&Environment"]
+        )
+        selected_year = st.selectbox(
+            "Select Academic Year to Mark", academic_years
+        )
 
         # ইয়ার অনুযায়ী কোর্সসমূহের তালিকা
         year_courses = {
