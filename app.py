@@ -368,77 +368,82 @@ elif menu == "Manage Students":
 # -------------------------------------------------------------
 # 5. STUDENT PERCENTAGE CHECKER
 # -------------------------------------------------------------
+# -------------------------------------------------------------
+# 5. STUDENT PERCENTAGE CHECKER
+# -------------------------------------------------------------
 elif menu == "Student Percentage Checker":
-    st.header("Individual Attendance Percentage Checker")
+    st.header("Student Attendance Percentage Checker")
 
-    df_students = load_students()
     df_attendance = load_attendance()
+    df_students = load_students()
 
-    if df_students.empty or "Academic Year" not in df_students.columns:
-        st.warning("No student data or academic year records found.")
+    if df_students.empty:
+        st.warning("No student records found in 'Students' sheet!")
     else:
-        selected_year_filter = st.selectbox(
-            "Select Academic Year",
-            ["1st Year", "2nd Year", "3rd Year", "4th Year"],
-        )
+        # Academic Year Filter
+        year_list = ["All Years"]
+        if "Academic Year" in df_students.columns:
+            year_list += df_students["Academic Year"].dropna().unique().tolist()
+        
+        selected_year = st.selectbox("Select Academic Year", year_list, key="pct_year")
 
-        year_students = df_students[
-            df_students["Academic Year"] == selected_year_filter
-        ]
+        filtered_students = df_students.copy()
+        if selected_year != "All Years" and "Academic Year" in filtered_students.columns:
+            filtered_students = filtered_students[filtered_students["Academic Year"] == selected_year]
 
-        if year_students.empty:
-            st.info(f"No students found in {selected_year_filter}.")
+        st.markdown("---")
+        
+        # Blank ID input box by default
+        input_student_id = st.text_input(
+            "Enter Your Student ID",
+            value="",
+            placeholder="e.g., 32006",
+            key="pct_input_id"
+        ).strip()
+
+        if not input_student_id:
+            st.info("Please enter your Student ID above to view your attendance progress.")
         else:
-            selected_student_id = st.selectbox(
-                "Select Student",
-                year_students["Student ID"].astype(str).values,
-                format_func=lambda x: f"{x} - {year_students[year_students['Student ID'].astype(str) == x]['Name'].values[0]}",
-            )
+            # Check if student exists in the filtered year list
+            matched_student = filtered_students[
+                filtered_students["Student ID"].astype(str).str.strip() == input_student_id
+            ]
 
-            if selected_student_id:
-                student_row = year_students[
-                    year_students["Student ID"].astype(str)
-                    == str(selected_student_id)
-                ].iloc[0]
-                st.subheader(
-                    f"Report for: {student_row['Name']} (ID: {selected_student_id})"
-                )
-                st.write(
-                    f"**Department:** {student_row.get('Department', 'N/A')} | **Year:** {student_row['Academic Year']}"
-                )
+            if matched_student.empty:
+                st.error(f"No registered student found with ID '{input_student_id}' ({selected_year}).")
+            else:
+                student_name = matched_student.iloc[0]["Name"]
 
-                if df_attendance.empty or "Student ID" not in df_attendance.columns:
-                    st.info("No attendance tracking entries recorded yet.")
+                # Fetch attendance logs for student
+                filtered_att = df_attendance.copy()
+
+                if not filtered_att.empty and "Student ID" in filtered_att.columns:
+                    st_att = filtered_att[filtered_att["Student ID"].astype(str).str.strip() == input_student_id]
+                    total_recorded = len(st_att)
+                    p_count = int((st_att["Status"] == "Present").sum())
+                    a_count = int((st_att["Status"] == "Absent").sum())
                 else:
-                    student_records = df_attendance[
-                        df_attendance["Student ID"].astype(str)
-                        == str(selected_student_id)
-                    ]
-                    total_classes = len(student_records)
+                    total_recorded = 0
+                    p_count = 0
+                    a_count = 0
 
-                    if total_classes == 0:
-                        st.info(
-                            "No attendance records found for this student."
-                        )
-                    else:
-                        present_classes = len(
-                            student_records[
-                                student_records["Status"].str.lower()
-                                == "present"
-                            ]
-                        )
-                        percentage = (
-                            (present_classes / total_classes) * 100
-                            if total_classes > 0
-                            else 0
-                        )
+                percentage = round((p_count / total_recorded) * 100, 2) if total_recorded > 0 else 0.0
 
-                        col1, col2, col3 = st.columns(3)
-                        col1.metric("Total Classes Held", total_classes)
-                        col2.metric("Classes Attended", present_classes)
-                        col3.metric(
-                            "Attendance Percentage", f"{percentage:.2f}%"
-                        )
+                # Display Individual Student Summary Card & Metrics
+                st.markdown(f"### Progress Summary for: **{student_name}** (ID: {input_student_id})")
+                
+                summary_df = pd.DataFrame([{
+                    "Student ID": input_student_id,
+                    "Name": student_name,
+                    "Total Classes Recorded": total_recorded,
+                    "Present": p_count,
+                    "Absent": a_count,
+                    "Attendance Percentage (%)": percentage
+                }])
+                
+                st.dataframe(summary_df, use_container_width=True)
 
-                        st.markdown("### Detailed Logs")
-                        st.dataframe(student_records, use_container_width=True)
+                st.markdown("---")
+                st.metric(label="Attendance Percentage", value=f"{percentage}%")
+                st.progress(float(percentage) / 100)
+                st.write(f"**Total Classes:** {total_recorded} | **Present:** {p_count} | **Absent:** {a_count}")
