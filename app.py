@@ -118,17 +118,17 @@ if menu == "Mark Attendance":
             "No students found or missing 'Student ID' column in the 'Students' sheet! Please check your Google Sheet headers: [Student ID, Name, Session, Academic Year, Department]."
         )
     else:
-        # ১. প্রথমে ডিপার্টমেন্ট সিলেক্ট করুন (Google Sheet-এ থাকা Department অনুযায়ী dynamically আসবে)
+        # ১. ডিপার্টমেন্ট সিলেক্ট করুন
         departments = (
             df_students["Department"].unique().tolist()
             if "Department" in df_students.columns
-            else ["Geography&Environment"]
+            else ["Geography&Environment", "Mechanical Engineering", "Computer Science"]
         )
         selected_department = st.selectbox(
             "১. Select Department", departments, key="attendance_dept"
         )
 
-        # সিলেক্টেড ডিপার্টমেন্ট অনুযায়ী ফিল্টার করা
+        # ডিপার্টমেন্ট অনুযায়ী স্টুডেন্ট ফিল্টার করা
         if "Department" in df_students.columns:
             dept_filtered_students = df_students[
                 df_students["Department"] == selected_department
@@ -136,7 +136,7 @@ if menu == "Mark Attendance":
         else:
             dept_filtered_students = df_students.copy()
 
-        # ২. ডিপার্টমেন্ট অনুযায়ী এভেলেবল ইয়ার সিলেক্ট করুন
+        # ২. ডিপার্টমেন্টের অন্তর্ভুক্ত এভেলেবল ইয়ার সিলেক্ট করুন
         available_years = (
             dept_filtered_students["Academic Year"].unique().tolist()
             if "Academic Year" in dept_filtered_students.columns and not dept_filtered_students.empty
@@ -146,49 +146,82 @@ if menu == "Mark Attendance":
             "২. Select Academic Year", available_years, key="attendance_year"
         )
 
-        # ৩. ইয়ার অনুযায়ী কোর্সের তালিকা (Subject Selection)
-        year_courses = {
-            "1st Year": [
-                "GETh: 1001: Geographical Thoughts and Concepts",
-                "GETh: 1002: Introduction to Physical Geography",
-                "GETh: 1003: Introduction to Human Geography",
-                "GETh: 1004: Concept of Region and World Regional Pattern",
-                "Special Attendance: Occasional"
-            ],
-            "2nd Year": [
-                "GETh: 2001: Environmental Chemistry",
-                "GETh: 2002: Geomorphology",
-                "GETh: 2003: Climatology",
-                "GETh: 2004: Economic Geography",
-                "GETh: 2005: Cultural Geography",
-                "GETh: 2006: Quantitative Techniques in Geography - I",
-                "Special Attendance: Occasional"
-            ],
-            "3rd Year": [
-                "GETh: 3001: Oceanography",
-                "GETh: 3002: Geography of Soil",
-                "GETh: 3003: Biogeography",
-                "GETh: 3004: Population Geography",
-                "GETh: 3005: Geography of Settlement",
-                "GETh: 3006: Geography of Bangladesh",
-                "Special Attendance: Occasional"
-            ],
-            "4th Year": [
-                "GETh: 4001: Hydrology and Fluvial Morphology",
-                "GETh: 4002: Disaster Management",
-                "GETh: 4003: Regional Geography and Environment of South Asia",
-                "GETh: 4004: Transport Geography",
-                "GETh: 4005: Urban Geography",
-                "GETh: 4006: Political Geography",
-                "GELb: 4007: Quantitative Techniques in Geography - II",
-                "Special Attendance: Occasional"
-            ]
+        # ---------------------------------------------------------
+        # ডিপার্টমেন্ট ও ইয়ার অনুযায়ী নির্দিষ্ট কোর্সের তালিকা (Subject Mapping)
+        # ---------------------------------------------------------
+        department_courses = {
+            "Geography&Environment": {
+                "1st Year": [
+                    "GETh: 1001: Geographical Thoughts and Concepts",
+                    "GETh: 1002: Introduction to Physical Geography",
+                    "GETh: 1003: Introduction to Human Geography",
+                    "GETh: 1004: Concept of Region and World Regional Pattern",
+                    "Special Attendance: Occasional"
+                ],
+                "2nd Year": [
+                    "GETh: 2001: Environmental Chemistry",
+                    "GETh: 2002: Geomorphology",
+                    "GETh: 2003: Climatology",
+                    "GETh: 2004: Economic Geography",
+                    "GETh: 2005: Cultural Geography",
+                    "GETh: 2006: Quantitative Techniques in Geography - I",
+                    "Special Attendance: Occasional"
+                ],
+                "3rd Year": [
+                    "GETh: 3001: Oceanography",
+                    "GETh: 3002: Geography of Soil",
+                    "GETh: 3003: Biogeography",
+                    "GETh: 3004: Population Geography",
+                    "GETh: 3005: Geography of Settlement",
+                    "GETh: 3006: Geography of Bangladesh",
+                    "Special Attendance: Occasional"
+                ],
+                "4th Year": [
+                    "GETh: 4001: Hydrology and Fluvial Morphology",
+                    "GETh: 4002: Disaster Management",
+                    "GETh: 4003: Regional Geography and Environment of South Asia",
+                    "GETh: 4004: Transport Geography",
+                    "GETh: 4005: Urban Geography",
+                    "GETh: 4006: Political Geography",
+                    "GELb: 4007: Quantitative Techniques in Geography - II",
+                    "Special Attendance: Occasional"
+                ]
+            },
+            "Mechanical Engineering": {
+                "1st Year": [
+                    "ME 101: Basic Mechanical Engineering",
+                    "ME 102: Engineering Drawing"
+                ],
+                "2nd Year": [
+                    "ME 201: Thermodynamics",
+                    "ME 202: Mechanics of Solids",
+                    "ME 203: Fluid Mechanics"
+                ],
+                "3rd Year": [
+                    "ME 301: Heat Transfer",
+                    "ME 302: Machine Design"
+                ],
+                "4th Year": [
+                    "ME 401: Power Plant Engineering",
+                    "ME 402: Automobile Engineering"
+                ]
+            },
+            "Computer Science": {
+                "1st Year": ["CSE 101: Structured Programming Language", "CSE 102: Discrete Mathematics"],
+                "2nd Year": ["CSE 201: Data Structures", "CSE 202: Object Oriented Programming"],
+                "3rd Year": ["CSE 301: Database Management Systems", "CSE 302: Software Engineering"],
+                "4th Year": ["CSE 401: Artificial Intelligence", "CSE 402: Computer Networks"]
+            }
         }
 
-        available_courses = year_courses.get(selected_year, ["General Course"])
+        # সিলেক্টেড ডিপার্টমেন্ট ও ইয়ার থেকে নির্দিষ্ট কোর্সের সাবজেক্ট ডাইনামিকালি লোড করা
+        dept_courses = department_courses.get(selected_department, {})
+        available_courses = dept_courses.get(selected_year, ["General Course"])
+
+        # ৩. কোর্স সিলেক্ট করা
         selected_course = st.selectbox("৩. Select Course Code & Title", available_courses)
 
-        # ডিপার্টমেন্ট এবং ইয়ার—উভয়টি অনুযায়ী স্টুডেন্টদের ফিল্টার করা
+        # ডিপার্টমেন্ট এবং ইয়ার অনুযায়ী ফাইনাল ফিল্টারড স্টুডেন্ট লিস্ট
         filtered_students = dept_filtered_students.copy()
         if "Academic Year" in filtered_students.columns:
             filtered_students = filtered_students[
@@ -200,7 +233,7 @@ if menu == "Mark Attendance":
         st.markdown(f"### Student List for: **{selected_department}** | **{selected_year}** | **{selected_course}**")
         st.info("Check the box next to the student if they are **Present**. (Unchecked means Absent)")
 
-        # আইডি অনুযায়ী সর্টিং
+        # আইডি সর্টিং
         sort_order = st.selectbox(
             "Sort Student ID by:",
             ["Ascending (Low to High)", "Descending (High to Low)"],
