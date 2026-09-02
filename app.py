@@ -426,7 +426,8 @@ elif menu == "Student Percentage Checker":
 
     if df_students.empty:
         st.warning("No student records found in 'Students' sheet!")
-   
+    else:
+       
         
         # Blank ID input box by default
         input_student_id = st.text_input(
