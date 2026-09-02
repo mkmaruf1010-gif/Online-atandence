@@ -59,8 +59,9 @@ def load_attendance():
 
 st.title("OASIS")
 st.markdown("---")
-
+# -------------------------------------------------------------
 # Sidebar Navigation
+# -------------------------------------------------------------
 menu = st.sidebar.selectbox(
     "Navigation",
     [
@@ -188,13 +189,13 @@ if menu == "Mark Attendance":
 
                 # Table Header Columns
                 h_col1, h_col2, h_col3, h_col4 = st.columns([1.5, 3, 2, 1])
-                with h_col1:
-                    st.markdown("**Student ID**")
                 with h_col2:
-                    st.markdown("**Student Name**")
+                    st.markdown("**Student ID**")
                 with h_col3:
-                    st.markdown("**Session**")
+                    st.markdown("**Student Name**")
                 with h_col4:
+                    st.markdown("**Session**")
+                with h_col1:
                     st.markdown("**Status**")
 
                 st.markdown("---")
@@ -208,13 +209,13 @@ if menu == "Mark Attendance":
                     )
 
                     col1, col2, col3, col4 = st.columns([1.5, 3, 2, 1])
-                    with col1:
-                        st.write(s_id)
                     with col2:
-                        st.write(f"**{s_name}**")
+                        st.write(s_id)
                     with col3:
-                        st.write(s_session)
+                        st.write(f"**{s_name}**")
                     with col4:
+                        st.write(s_session)
+                    with col1:
                         is_present = st.checkbox(
                             "Present",
                             value=False,
