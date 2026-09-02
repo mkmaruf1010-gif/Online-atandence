@@ -321,6 +321,150 @@ if menu == "Mark Attendance":
 
 
 # -------------------------------------------------------------
+# 2. REGISTER STUDENT
+# -------------------------------------------------------------
+elif menu == "Register Student":
+    st.header("Register New Student")
+
+    with st.form("register_form"):
+        student_id = st.text_input("Student ID")
+        name = st.text_input("Full Name")
+        session = st.text_input("Session (e.g., 2020-2021)")
+        academic_year = st.selectbox("Academic Year", ["1st Year", "2nd Year", "3rd Year", "4th Year"])
+        department = st.selectbox("Department", ["Geography & Environment", "Math", "Physics", "Chemistry"])
+
+        reg_submitted = st.form_submit_button("Register Student")
+
+        if reg_submitted:
+            if not student_id or not name:
+                st.error("Student ID and Name are required fields!")
+            else:
+                df_students = load_students()
+                headers = ["Student ID", "Name", "Session", "Academic Year", "Department"]
+
+                # চেক করা ID অলরেডি আছে কিনা
+                if not df_students.empty and "Student ID" in df_students.columns:
+                    existing_ids = df_students["Student ID"].astype(str).str.strip().tolist()
+                    if str(student_id).strip() in existing_ids:
+                        st.error(f"Student ID '{student_id}' is already registered!")
+                        st.stop()
+                    rows_to_save = [df_students.columns.tolist()] + df_students.values.tolist()
+                else:
+                    rows_to_save = [headers]
+
+                rows_to_save.append([str(student_id).strip(), name, session, academic_year, department])
+
+                students_worksheet.clear()
+                students_worksheet.update(rows_to_save)
+                st.success(f"Student **{name}** (ID: {student_id}) successfully registered!")
+
+
+# -------------------------------------------------------------
+# 3. VIEW RECORDS
+# -------------------------------------------------------------
+elif menu == "View Records":
+    st.header("View Attendance Records")
+
+    df_attendance = load_attendance()
+
+    if df_attendance.empty:
+        st.info("No attendance records found.")
+    else:
+        # ফিল্টার অপশনসমূহ
+        col1, col2, col3 = st.columns(3)
+
+        with col1:
+            dept_list = ["All"] + (df_attendance["Department"].dropna().unique().tolist() if "Department" in df_attendance.columns else [])
+            v_dept = st.selectbox("Filter by Department", dept_list, key="v_dept")
+
+        with col2:
+            course_list = ["All"] + (df_attendance["Course"].dropna().unique().tolist() if "Course" in df_attendance.columns else [])
+            v_course = st.selectbox("Filter by Course", course_list, key="v_course")
+
+        with col3:
+            date_list = ["All"] + (df_attendance["Date"].dropna().unique().tolist() if "Date" in df_attendance.columns else [])
+            v_date = st.selectbox("Filter by Date", date_list, key="v_date")
+
+        filtered_view = df_attendance.copy()
+
+        if v_dept != "All" and "Department" in filtered_view.columns:
+            filtered_view = filtered_view[filtered_view["Department"] == v_dept]
+
+        if v_course != "All" and "Course" in filtered_view.columns:
+            filtered_view = filtered_view[filtered_view["Course"] == v_course]
+
+        if v_date != "All" and "Date" in filtered_view.columns:
+            filtered_view = filtered_view[filtered_view["Date"] == v_date]
+
+        # ID অনুযায়ী সর্টিং
+        if not filtered_view.empty and "Student ID" in filtered_view.columns:
+            try:
+                filtered_view["_sort_id"] = pd.to_numeric(filtered_view["Student ID"])
+                filtered_view = filtered_view.sort_values(by="_sort_id", ascending=True).drop(columns=["_sort_id"])
+            except Exception:
+                pass
+
+        st.dataframe(filtered_view, use_container_width=True)
+
+
+# -------------------------------------------------------------
+# 4. MANAGE STUDENTS
+# -------------------------------------------------------------
+elif menu == "Manage Students":
+    st.header("Manage Registered Students")
+
+    df_students = load_students()
+
+    if df_students.empty:
+        st.warning("No students registered yet.")
+    else:
+        # ফিল্টার
+        col1, col2 = st.columns(2)
+        with col1:
+            m_dept_list = ["All"] + (df_students["Department"].dropna().unique().tolist() if "Department" in df_students.columns else [])
+            m_dept = st.selectbox("Filter Department", m_dept_list, key="m_dept")
+        with col2:
+            m_year_list = ["All"] + (df_students["Academic Year"].dropna().unique().tolist() if "Academic Year" in df_students.columns else [])
+            m_year = st.selectbox("Filter Academic Year", m_year_list, key="m_year")
+
+        m_filtered = df_students.copy()
+        if m_dept != "All" and "Department" in m_filtered.columns:
+            m_filtered = m_filtered[m_filtered["Department"] == m_dept]
+        if m_year != "All" and "Academic Year" in m_filtered.columns:
+            m_filtered = m_filtered[m_filtered["Academic Year"] == m_year]
+
+        # ID সর্টিং
+        if not m_filtered.empty and "Student ID" in m_filtered.columns:
+            try:
+                m_filtered["_sort_id"] = pd.to_numeric(m_filtered["Student ID"])
+                m_filtered = m_filtered.sort_values(by="_sort_id", ascending=True).drop(columns=["_sort_id"])
+            except Exception:
+                pass
+
+        st.dataframe(m_filtered, use_container_width=True)
+
+        st.markdown("---")
+        st.subheader("Delete Student Record")
+
+        student_to_delete = st.selectbox(
+            "Select Student ID to Delete",
+            ["None"] + df_students["Student ID"].astype(str).tolist(),
+            key="del_student"
+        )
+
+        if student_to_delete != "None":
+            if st.button(f"Delete Student ID: {student_to_delete}", type="primary"):
+                df_updated = df_students[df_students["Student ID"].astype(str) != str(student_to_delete)]
+                
+                rows_to_save = [df_updated.columns.tolist()] + df_updated.values.tolist()
+                students_worksheet.clear()
+                students_worksheet.update(rows_to_save)
+                
+                st.success(f"Student ID '{student_to_delete}' removed successfully!")
+                st.rerun()
+
+
+# -------------------------------------------------------------
 # 5. STUDENT PERCENTAGE CHECKER
 # -------------------------------------------------------------
 elif menu == "Student Percentage Checker":
@@ -329,21 +473,22 @@ elif menu == "Student Percentage Checker":
     df_attendance = load_attendance()
     df_students = load_students()
 
-    if df_students.empty and df_attendance.empty:
-        st.info("No records found in Students or Attendance sheets.")
+    if df_students.empty:
+        st.warning("No student records found in 'Students' sheet!")
     else:
-        # ১. Select Department
         dept_list = (
             df_students["Department"].dropna().unique().tolist()
-            if "Department" in df_students.columns and not df_students.empty
-            else df_attendance["Department"].dropna().unique().tolist() if "Department" in df_attendance.columns else ["Geography & Environment"]
+            if "Department" in df_students.columns
+            else ["Geography & Environment"]
         )
         selected_dept = st.selectbox("Select Department", dept_list, key="pct_dept")
 
-        # ডিপার্টমেন্ট অনুযায়ী স্টুডেন্ট ফিল্টার
-        filtered_students = df_students[df_students["Department"] == selected_dept] if "Department" in df_students.columns else df_students.copy()
+        filtered_students = (
+            df_students[df_students["Department"] == selected_dept]
+            if "Department" in df_students.columns
+            else df_students.copy()
+        )
 
-        # ২. Select Academic Year
         year_list = ["All Years"]
         if "Academic Year" in filtered_students.columns:
             year_list += filtered_students["Academic Year"].dropna().unique().tolist()
@@ -352,7 +497,6 @@ elif menu == "Student Percentage Checker":
         if selected_year != "All Years" and "Academic Year" in filtered_students.columns:
             filtered_students = filtered_students[filtered_students["Academic Year"] == selected_year]
 
-        # ৩. Select Student (ID - Name)
         student_options = ["All Students"]
         if not filtered_students.empty and "Student ID" in filtered_students.columns and "Name" in filtered_students.columns:
             for _, row in filtered_students.iterrows():
@@ -360,39 +504,40 @@ elif menu == "Student Percentage Checker":
         
         selected_student = st.selectbox("Select Student", student_options, key="pct_student")
 
-        # অ্যাটেন্ডেন্স ফিল্টারিং
-        filtered_att = df_attendance.copy()
-        if "Department" in filtered_att.columns:
-            filtered_att = filtered_att[filtered_att["Department"] == selected_dept]
-
-        # যদি ড্রপডাউন থেকে নির্দিষ্ট স্টুডেন্ট নির্বাচন করা হয়
-        if selected_student != "All Students":
-            student_id = selected_student.split(" - ")[0].strip()
-            filtered_att = filtered_att[filtered_att["Student ID"].astype(str) == student_id]
-        elif not filtered_students.empty and "Student ID" in filtered_students.columns:
-            valid_ids = filtered_students["Student ID"].astype(str).tolist()
-            filtered_att = filtered_att[filtered_att["Student ID"].astype(str).isin(valid_ids)]
-
         st.markdown(f"### Summary for Department: **{selected_dept}** | Year: **{selected_year}**")
 
-        if filtered_att.empty:
-            st.warning("No attendance records found for the selected options.")
+        if filtered_students.empty:
+            st.warning("No registered students found for the selected department/year.")
         else:
-            filtered_att["Student ID"] = filtered_att["Student ID"].astype(str)
+            filtered_att = df_attendance.copy()
+            if not filtered_att.empty and "Department" in filtered_att.columns:
+                filtered_att = filtered_att[filtered_att["Department"] == selected_dept]
 
-            # পার্সেন্টেজ হিসাব
+            if selected_student != "All Students":
+                target_id = str(selected_student.split(" - ")[0]).strip()
+                filtered_students = filtered_students[filtered_students["Student ID"].astype(str) == target_id]
+
             summary_list = []
-            grouped = filtered_att.groupby(["Student ID", "Name"])
 
-            for (s_id, name), group in grouped:
-                total_recorded = len(group)
-                p_count = (group["Status"] == "Present").sum()
-                a_count = (group["Status"] == "Absent").sum()
+            for _, s_row in filtered_students.iterrows():
+                s_id = str(s_row["Student ID"]).strip()
+                s_name = s_row["Name"]
+
+                if not filtered_att.empty and "Student ID" in filtered_att.columns:
+                    st_att = filtered_att[filtered_att["Student ID"].astype(str) == s_id]
+                    total_recorded = len(st_att)
+                    p_count = (st_att["Status"] == "Present").sum()
+                    a_count = (st_att["Status"] == "Absent").sum()
+                else:
+                    total_recorded = 0
+                    p_count = 0
+                    a_count = 0
+
                 percentage = round((p_count / total_recorded) * 100, 2) if total_recorded > 0 else 0.0
 
                 summary_list.append({
                     "Student ID": s_id,
-                    "Name": name,
+                    "Name": s_name,
                     "Total Classes Recorded": total_recorded,
                     "Present": p_count,
                     "Absent": a_count,
@@ -401,7 +546,6 @@ elif menu == "Student Percentage Checker":
 
             summary_df = pd.DataFrame(summary_list)
 
-            # আইডি নিউমেরিক সর্টিং
             try:
                 summary_df["_sort_id"] = pd.to_numeric(summary_df["Student ID"])
                 summary_df = summary_df.sort_values(by="_sort_id", ascending=True).drop(columns=["_sort_id"])
@@ -410,7 +554,6 @@ elif menu == "Student Percentage Checker":
 
             st.dataframe(summary_df, use_container_width=True)
 
-            # নির্দিষ্ট একজন স্টুডেন্ট নির্বাচন করলে তার ভিজ্যুয়াল মেট্রিক
             if selected_student != "All Students" and not summary_df.empty:
                 row = summary_df.iloc[0]
                 st.markdown("---")
