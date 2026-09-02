@@ -125,7 +125,7 @@ if menu == "Mark Attendance":
             else ["Select Department"]
         )
         selected_department = st.selectbox(
-            "১. Select Department", departments, key="attendance_dept"
+            " Select Department", departments, key="attendance_dept"
         )
 
         # ডিপার্টমেন্ট অনুযায়ী স্টুডেন্ট ফিল্টার করা
@@ -143,7 +143,7 @@ if menu == "Mark Attendance":
             else ["1st Year", "2nd Year", "3rd Year", "4th Year"]
         )
         selected_year = st.selectbox(
-            "২. Select Academic Year", available_years, key="attendance_year"
+            "Select Academic Year", available_years, key="attendance_year"
         )
 
         # ---------------------------------------------------------
@@ -225,7 +225,7 @@ if menu == "Mark Attendance":
         available_courses = dept_courses.get(selected_year, ["General Course"])
 
         # ৩. কোর্স সিলেক্ট করা
-        selected_course = st.selectbox("৩. Select Course Code & Title", available_courses)
+        selected_course = st.selectbox(" Select Course Code & Title", available_courses)
 
         # ডিপার্টমেন্ট এবং ইয়ার অনুযায়ী ফাইনাল ফিল্টারড স্টুডেন্ট লিস্ট
         filtered_students = dept_filtered_students.copy()
