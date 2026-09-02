@@ -354,6 +354,16 @@ elif menu == "View Records":
 
     if df_attendance.empty or "Date" not in df_attendance.columns:
         st.info("No attendance records found yet.")
+    
+         else:
+        academic_years = (
+            df_students["Academic Year"].unique().tolist()
+            if "Academic Year" in df_students.columns
+            else ["1st Year", "2nd Year", "3rd Year", "4th Year"]
+        )
+        selected_year = st.selectbox(
+            "Select Academic Year to Mark", academic_years
+        )
     else:
         unique_dates = df_attendance["Date"].unique()
         selected_date = st.selectbox(
