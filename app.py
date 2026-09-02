@@ -265,11 +265,12 @@ if menu == "Mark Attendance":
                         [str(att_date), str(selected_course), str(s_id), data["Name"], data["Status"]]
                     )
 
-                attendance_worksheet.clear()
-                attendance_worksheet.update(rows_to_save)
-                st.success(
-                    f"Attendance successfully saved to Google Sheets for {selected_course} on {att_date}!"
-                )
+               attendance_worksheet.clear()
+                    attendance_worksheet.update(rows_to_save)
+
+                    st.success(
+                        f"Attendance successfully saved to Google Sheets for {selected_course} on {att_date}!"
+                    )
 # -------------------------------------------------------------
 # 2. REGISTER STUDENT
 # -------------------------------------------------------------
