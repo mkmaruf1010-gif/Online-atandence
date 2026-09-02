@@ -59,9 +59,7 @@ def load_attendance():
 
 st.title("OASIS")
 st.markdown("---")
-# -------------------------------------------------------------
 # Sidebar Navigation
-# -------------------------------------------------------------
 menu = st.sidebar.selectbox(
     "Navigation",
     [
@@ -107,20 +105,10 @@ if menu in protected_pages:
             st.rerun()
 
 
-# -------------------------------------------------------------
-# NAVIGATION SIDEBAR
-# -------------------------------------------------------------
-menu_option = st.sidebar.selectbox(
-    "Navigation",
-    ["Mark Attendance", "Student Percentage Checker", "Manage Students"], # আপনার বাকি অপশন
-    key="main_menu"
-)
 
-# Strip spaces to ensure exact string matching
-menu = menu_option.strip()
 
 # -------------------------------------------------------------
-# MARK ATTENDANCE SECTION
+# 1. MARK ATTENDANCE
 # -------------------------------------------------------------
 if menu == "Mark Attendance":
     st.header("Mark Daily Attendance")
@@ -129,11 +117,11 @@ if menu == "Mark Attendance":
 
     if df_students.empty or "Student ID" not in df_students.columns:
         st.warning(
-            "No students found or missing 'Student ID' column in the 'Students' sheet!"
+            "No students found or missing 'Student ID' column in the 'Students' sheet! Please check your Google Sheet headers: [Student ID, Name, Session, Academic Year]."
         )
     else:
         academic_years = (
-            df_students["Academic Year"].unique().tolist()
+            df_students["Academic Year"].unique()
             if "Academic Year" in df_students.columns
             else ["1st Year", "2nd Year", "3rd Year", "4th Year"]
         )
@@ -141,20 +129,20 @@ if menu == "Mark Attendance":
             "Select Academic Year to Mark", academic_years
         )
 
+        # ইয়ার অনুযায়ী কোর্সসমূহের তালিকা
         year_courses = {
             "1st Year": [
                 "GETh: 1001: Geographical Thoughts and Concepts",
                 "GETh: 1002: Introduction to Physical Geography",
                 "GETh: 1003: Introduction to Human Geography",
-                "GETh: 1004: Concept of Region and World Regional Pattern",
+                "GETh: 1004: Concept of Region and World Regional Pattern"
             ],
             "2nd Year": [
-                "GETh: 2001: Environmental Chemistry",
-                "GETh: 2002: Geomorphology",
+                "GETh: 2001: Environmental Chemistry""GETh: 2002: Geomorphology",
                 "GETh: 2003: Climatology",
                 "GETh: 2004: Economic Geography",
                 "GETh: 2005: Cultural Geography",
-                "GETh: 2006: Quantitative Techniques in Geography - I",
+                "GETh: 2006: Quantitative Techniques in Geography - I"
             ],
             "3rd Year": [
                 "GETh: 3001: Oceanography",
@@ -162,7 +150,7 @@ if menu == "Mark Attendance":
                 "GETh: 3003: Biogeography",
                 "GETh: 3004: Population Geography",
                 "GETh: 3005: Geography of Settlement",
-                "GETh: 3006: Geography of Bangladesh",
+                "GETh: 3006: Geography of Bangladesh"
             ],
             "4th Year": [
                 "GETh: 4001: Hydrology and Fluvial Morphology",
@@ -171,17 +159,19 @@ if menu == "Mark Attendance":
                 "GETh: 4004: Transport Geography",
                 "GETh: 4005: Urban Geography",
                 "GETh: 4006: Political Geography",
-                "GELb: 4007: Quantitative Techniques in Geography - II",
-            ],
+                "GELb: 4007: Quantitative Techniques in Geography - II"
+            ]
         }
 
+        # সিলেক্টেড ইয়ারের আন্ডারে কোর্স ফিল্টার করা
         available_courses = year_courses.get(selected_year, ["General Course"])
-        selected_course = st.selectbox(
-            "Select Course Code & Title", available_courses
-        )
+        selected_course = st.selectbox("Select Course Code & Title", available_courses)
 
-        filtered_students = df_students.copy()
-        if "Academic Year" in df_students.columns:
+        filtered_students = df_students
+        if (
+            selected_year != "All"
+            and "Academic Year" in df_students.columns
+        ):
             filtered_students = df_students[
                 df_students["Academic Year"] == selected_year
             ]
@@ -189,82 +179,56 @@ if menu == "Mark Attendance":
         att_date = st.date_input("Select Date", value=date.today())
 
         st.markdown(f"### Student List for {selected_year} - {selected_course}")
-        st.info(
-            "Check the box next to the student if they are **Present**. (Unchecked means **Absent**)"
-        )
+        st.info("Check the box next to the student if they are **Present**. (Unchecked means Absent)")
 
-        if filtered_students.empty:
-            st.warning(f"No students registered under {selected_year}.")
-        else:
-            with st.form("attendance_form"):
-                attendance_status = {}
+        with st.form("attendance_form"):
+            attendance_status = {}
 
-                # Table Header Columns
-                h_col1, h_col2, h_col3, h_col4 = st.columns([3, 2, 2, 1])
-                with h_col2:
-                    st.markdown("**Student ID**")
-                with h_col3:
-                    st.markdown("**Student Name**")
-                with h_col4:
-                    st.markdown("**Session**")
-                with h_col1:
-                    st.markdown("**Status**")
+            for index, row in filtered_students.iterrows():
+                s_id = str(row["Student ID"])
+                s_name = row["Name"]
+                s_session = (
+                    row["Session"]
+                    if "Session" in df_students.columns
+                    else ""
+                )
 
-                st.markdown("---")
+                col1, col2, col3 = st.columns([1, 3, 2])
+                with col1:
+                    # ডিফল্টভাবে ব্ল্যাঙ্ক বা আনচেকড রাখার জন্য value=False দেওয়া হয়েছে
+                    is_present = st.checkbox(
+                        "Present",
+                        value=False,
+                        key=f"att_{s_id}",
+                        label_visibility="collapsed",
+                    )
+                with col2:
+                    st.write(f"**{s_name}** *(ID: {s_id})*")
+                with col3:
+                    st.write(f"Session: {s_session}")
 
-                # Student Rows
-                for index, row in filtered_students.iterrows():
-                    s_id = str(row["Student ID"]).strip()
-                    s_name = row["Name"]
-                    s_session = (
-                        row["Session"] if "Session" in df_students.columns else ""
+                attendance_status[s_id] = {
+                    "Name": s_name,
+                    "Status": "Present" if is_present else "Absent",
+                }
+
+            submitted = st.form_submit_button("Save Attendance")
+
+            if submitted:
+                df_attendance = load_attendance()
+                if not df_attendance.empty and "Date" in df_attendance.columns:
+                    # একই তারিখ এবং নির্দিষ্ট কোর্সের আগের এন্ট্রি হ্যান্ডেল করার লজিক চাইলে রাখতে পারো
+                    rows_to_save = [
+                        df_attendance.columns.tolist()
+                    ] + df_attendance.values.tolist()
+                else:
+                    rows_to_save = [["Date", "Course", "Student ID", "Name", "Status"]]
+
+                for s_id, data in attendance_status.items():
+                    rows_to_save.append(
+                        [str(att_date), str(selected_course), str(s_id), data["Name"], data["Status"]]
                     )
 
-                    col1, col2, col3, col4 = st.columns([3, 2, 2, 1])
-                    with col2:
-                        st.write(s_id)
-                    with col3:
-                        st.write(f"**{s_name}**")
-                    with col4:
-                        st.write(s_session)
-                    with col1:
-                        is_present = st.checkbox(
-                            "Present",
-                            value=False,
-                            key=f"att_{s_id}",
-                            label_visibility="collapsed",
-                        )
-
-                    attendance_status[s_id] = {
-                        "Name": s_name,
-                        "Status": "Present" if is_present else "Absent",
-                    }
-
-                st.markdown("---")
-                submitted = st.form_submit_button("Save Attendance", use_container_width=True)
-
-                if submitted:
-                    df_attendance = load_attendance()
-
-                    if df_attendance.empty:
-                        rows_to_save = [
-                            ["Date", "Course", "Student ID", "Name", "Status"]
-                        ]
-                    else:
-                        rows_to_save = [
-                            df_attendance.columns.tolist()
-                        ] + df_attendance.values.tolist()
-
-                    for s_id, data in attendance_status.items():
-                        rows_to_save.append(
-                            [
-                                str(att_date),
-                                str(selected_course),
-                                str(s_id),
-                                str(data["Name"]),
-                                str(data["Status"]),
-                            ]
-                        )
 
                     attendance_worksheet.clear()
                     attendance_worksheet.update(rows_to_save)
