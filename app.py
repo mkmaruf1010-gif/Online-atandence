@@ -119,6 +119,15 @@ if menu == "Mark Attendance":
             "No students found or missing 'Student ID' column in the 'Students' sheet! Please check your Google Sheet headers: [Student ID, Name, Session, Academic Year]."
         )
     else:
+        # Department Selection
+        departments = (
+            df_students["Department"].unique().tolist()
+            if "Department" in df_students.columns
+            else ["Geography&Environment"]
+        )
+        selected_department = st.selectbox(
+            "Select Department", departments, key="attendance_dept"
+        )
         academic_years = (
             df_students["Academic Year"].unique()
             if "Academic Year" in df_students.columns
@@ -127,14 +136,7 @@ if menu == "Mark Attendance":
         selected_year = st.selectbox(
             "Select Academic Year to Mark", academic_years
         )
-          Department = (
-            df_students["Department"].unique()
-            if "Department" in df_students.columns
-            else ["Geography&Environment"]
-        )
-        selected_year = st.selectbox(
-            "Select Academic Year to Mark", academic_years
-        )
+       
 
         # ইয়ার অনুযায়ী কোর্সসমূহের তালিকা
         year_courses = {
