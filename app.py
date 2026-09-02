@@ -329,46 +329,58 @@ elif menu == "Student Percentage Checker":
     df_attendance = load_attendance()
     df_students = load_students()
 
-    if df_attendance.empty:
-        st.info("No attendance records found in the Google Sheet.")
+    if df_students.empty and df_attendance.empty:
+        st.info("No records found in Students or Attendance sheets.")
     else:
-        # ডিপার্টমেন্ট ফিল্টার
-        dept_list = ["All"]
-        if "Department" in df_attendance.columns:
-            dept_list += df_attendance["Department"].dropna().unique().tolist()
-        elif "Department" in df_students.columns:
-            dept_list += df_students["Department"].dropna().unique().tolist()
-
+        # ১. Select Department
+        dept_list = (
+            df_students["Department"].dropna().unique().tolist()
+            if "Department" in df_students.columns and not df_students.empty
+            else df_attendance["Department"].dropna().unique().tolist() if "Department" in df_attendance.columns else ["Geography & Environment"]
+        )
         selected_dept = st.selectbox("Select Department", dept_list, key="pct_dept")
 
-        # ফিল্টার প্রয়োগ
+        # ডিপার্টমেন্ট অনুযায়ী স্টুডেন্ট ফিল্টার
+        filtered_students = df_students[df_students["Department"] == selected_dept] if "Department" in df_students.columns else df_students.copy()
+
+        # ২. Select Academic Year
+        year_list = ["All Years"]
+        if "Academic Year" in filtered_students.columns:
+            year_list += filtered_students["Academic Year"].dropna().unique().tolist()
+        selected_year = st.selectbox("Select Academic Year", year_list, key="pct_year")
+
+        if selected_year != "All Years" and "Academic Year" in filtered_students.columns:
+            filtered_students = filtered_students[filtered_students["Academic Year"] == selected_year]
+
+        # ৩. Select Student (ID - Name)
+        student_options = ["All Students"]
+        if not filtered_students.empty and "Student ID" in filtered_students.columns and "Name" in filtered_students.columns:
+            for _, row in filtered_students.iterrows():
+                student_options.append(f"{row['Student ID']} - {row['Name']}")
+        
+        selected_student = st.selectbox("Select Student", student_options, key="pct_student")
+
+        # অ্যাটেন্ডেন্স ফিল্টারিং
         filtered_att = df_attendance.copy()
-        if selected_dept != "All" and "Department" in filtered_att.columns:
+        if "Department" in filtered_att.columns:
             filtered_att = filtered_att[filtered_att["Department"] == selected_dept]
 
-        # কোর্স সিলেক্ট করার অপশন
-        course_list = ["All Courses"]
-        if "Course" in filtered_att.columns:
-            course_list += filtered_att["Course"].dropna().unique().tolist()
+        # যদি ড্রপডাউন থেকে নির্দিষ্ট স্টুডেন্ট নির্বাচন করা হয়
+        if selected_student != "All Students":
+            student_id = selected_student.split(" - ")[0].strip()
+            filtered_att = filtered_att[filtered_att["Student ID"].astype(str) == student_id]
+        elif not filtered_students.empty and "Student ID" in filtered_students.columns:
+            valid_ids = filtered_students["Student ID"].astype(str).tolist()
+            filtered_att = filtered_att[filtered_att["Student ID"].astype(str).isin(valid_ids)]
 
-        selected_course = st.selectbox("Select Course/Subject", course_list, key="pct_course")
-
-        if selected_course != "All Courses" and "Course" in filtered_att.columns:
-            filtered_att = filtered_att[filtered_att["Course"] == selected_course]
+        st.markdown(f"### Summary for Department: **{selected_dept}** | Year: **{selected_year}**")
 
         if filtered_att.empty:
-            st.warning("No attendance records found for the selected filters.")
+            st.warning("No attendance records found for the selected options.")
         else:
-            # ডাটা প্রসেসিং ও হিসাব
             filtered_att["Student ID"] = filtered_att["Student ID"].astype(str)
 
-            # মোট কতটি ক্লাস হয়েছে
-            if selected_course != "All Courses" and "Date" in filtered_att.columns:
-                total_classes = filtered_att["Date"].nunique()
-            else:
-                total_classes = filtered_att.groupby("Student ID")["Status"].count().max()
-
-            # প্রতিটি স্টুডেন্টের প্রেজেন্ট ও অ্যাবসেন্ট গণনা
+            # পার্সেন্টেজ হিসাব
             summary_list = []
             grouped = filtered_att.groupby(["Student ID", "Name"])
 
@@ -376,14 +388,12 @@ elif menu == "Student Percentage Checker":
                 total_recorded = len(group)
                 p_count = (group["Status"] == "Present").sum()
                 a_count = (group["Status"] == "Absent").sum()
-
-                base_total = total_classes if total_classes > 0 else total_recorded
-                percentage = round((p_count / base_total) * 100, 2) if base_total > 0 else 0.0
+                percentage = round((p_count / total_recorded) * 100, 2) if total_recorded > 0 else 0.0
 
                 summary_list.append({
                     "Student ID": s_id,
                     "Name": name,
-                    "Total Classes": base_total,
+                    "Total Classes Recorded": total_recorded,
                     "Present": p_count,
                     "Absent": a_count,
                     "Attendance Percentage (%)": percentage
@@ -398,21 +408,13 @@ elif menu == "Student Percentage Checker":
             except Exception:
                 pass
 
-            st.markdown(f"### Summary for Department: **{selected_dept}** | Course: **{selected_course}**")
             st.dataframe(summary_df, use_container_width=True)
 
-            # ইন্ডিভিজুয়াল স্টুডেন্ট সার্চিং অপশন
-            st.markdown("---")
-            st.subheader("Search Individual Student Record")
-            search_id = st.text_input("Enter Student ID to check:")
-
-            if search_id:
-                student_data = summary_df[summary_df["Student ID"] == str(search_id).strip()]
-                if not student_data.empty:
-                    row = student_data.iloc[0]
-                    st.success(f"**Name:** {row['Name']}")
-                    st.metric(label="Attendance Percentage", value=f"{row['Attendance Percentage (%)']}%")
-                    st.progress(float(row['Attendance Percentage (%)']) / 100)
-                    st.write(f"**Total Classes:** {row['Total Classes']} | **Present:** {row['Present']} | **Absent:** {row['Absent']}")
-                else:
-                    st.error("Student ID not found in the records.")
+            # নির্দিষ্ট একজন স্টুডেন্ট নির্বাচন করলে তার ভিজ্যুয়াল মেট্রিক
+            if selected_student != "All Students" and not summary_df.empty:
+                row = summary_df.iloc[0]
+                st.markdown("---")
+                st.success(f"**Student Name:** {row['Name']}")
+                st.metric(label="Attendance Percentage", value=f"{row['Attendance Percentage (%)']}%")
+                st.progress(float(row['Attendance Percentage (%)']) / 100)
+                st.write(f"**Total Classes:** {row['Total Classes Recorded']} | **Present:** {row['Present']} | **Absent:** {row['Absent']}")
