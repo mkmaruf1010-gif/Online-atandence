@@ -427,19 +427,6 @@ elif menu == "Student Percentage Checker":
     if df_students.empty:
         st.warning("No student records found in 'Students' sheet!")
     else:
-        # Academic Year Filter
-        year_list = ["All Years"]
-        if "Academic Year" in df_students.columns:
-            year_list += df_students["Academic Year"].dropna().unique().tolist()
-        
-        selected_year = st.selectbox("Select Academic Year", year_list, key="pct_year")
-
-        filtered_students = df_students.copy()
-        if selected_year != "All Years" and "Academic Year" in filtered_students.columns:
-            filtered_students = filtered_students[filtered_students["Academic Year"] == selected_year]
-
-        st.markdown("---")
-        
         # Blank ID input box by default
         input_student_id = st.text_input(
             "Enter Your Student ID",
@@ -451,13 +438,13 @@ elif menu == "Student Percentage Checker":
         if not input_student_id:
             st.info("Please enter your Student ID above to view your attendance progress.")
         else:
-            # Check if student exists in the filtered year list
-            matched_student = filtered_students[
-                filtered_students["Student ID"].astype(str).str.strip() == input_student_id
+            # Check if student exists in the student list
+            matched_student = df_students[
+                df_students["Student ID"].astype(str).str.strip() == input_student_id
             ]
 
             if matched_student.empty:
-                st.error(f"No registered student found with ID '{input_student_id}' ({selected_year}).")
+                st.error(f"No registered student found with ID '{input_student_id}'.")
             else:
                 student_name = matched_student.iloc[0]["Name"]
 
@@ -497,7 +484,7 @@ elif menu == "Student Percentage Checker":
                 st.write(f"**Total Classes:** {total_recorded} | **Present:** {p_count} | **Absent:** {a_count}")
 
                 # -------------------------------------------------------------
-                # NEW DETAILED DATE-WISE ATTENDANCE LOG TABLE
+                # DETAILED DATE-WISE ATTENDANCE LOG TABLE
                 # -------------------------------------------------------------
                 st.markdown("---")
                 st.subheader("📅 Detailed Date-wise Attendance Logs")
