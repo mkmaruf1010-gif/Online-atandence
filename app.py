@@ -368,9 +368,6 @@ elif menu == "Manage Students":
 # -------------------------------------------------------------
 # 5. STUDENT PERCENTAGE CHECKER
 # -------------------------------------------------------------
-# -------------------------------------------------------------
-# 5. STUDENT PERCENTAGE CHECKER
-# -------------------------------------------------------------
 elif menu == "Student Percentage Checker":
     st.header("Student Attendance Percentage Checker")
 
@@ -381,7 +378,7 @@ elif menu == "Student Percentage Checker":
         st.warning("No student records found in 'Students' sheet!")
     else:
         # Academic Year Filter
-        year_list = ["---"]
+        year_list = ["All Years"]
         if "Academic Year" in df_students.columns:
             year_list += df_students["Academic Year"].dropna().unique().tolist()
         
@@ -423,6 +420,7 @@ elif menu == "Student Percentage Checker":
                     p_count = int((st_att["Status"] == "Present").sum())
                     a_count = int((st_att["Status"] == "Absent").sum())
                 else:
+                    st_att = pd.DataFrame()
                     total_recorded = 0
                     p_count = 0
                     a_count = 0
@@ -447,3 +445,31 @@ elif menu == "Student Percentage Checker":
                 st.metric(label="Attendance Percentage", value=f"{percentage}%")
                 st.progress(float(percentage) / 100)
                 st.write(f"**Total Classes:** {total_recorded} | **Present:** {p_count} | **Absent:** {a_count}")
+
+                # -------------------------------------------------------------
+                # NEW DETAILED DATE-WISE ATTENDANCE LOG TABLE
+                # -------------------------------------------------------------
+                st.markdown("---")
+                st.subheader("📅 Detailed Date-wise Attendance Logs")
+
+                if st_att.empty:
+                    st.info("No detailed class records found for this student.")
+                else:
+                    # Select relevant columns for clear viewing
+                    display_cols = [col for col in ["Date", "Course", "Status"] if col in st_att.columns]
+                    
+                    if display_cols:
+                        detailed_df = st_att[display_cols].copy()
+                        
+                        # Sort by date (latest dates first) if Date column exists
+                        if "Date" in detailed_df.columns:
+                            try:
+                                detailed_df["Date"] = pd.to_datetime(detailed_df["Date"])
+                                detailed_df = detailed_df.sort_values(by="Date", ascending=False)
+                                detailed_df["Date"] = detailed_df["Date"].dt.strftime('%Y-%m-%d')
+                            except Exception:
+                                pass
+                        
+                        st.dataframe(detailed_df, use_container_width=True)
+                    else:
+                        st.dataframe(st_att, use_container_width=True)
