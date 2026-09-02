@@ -256,21 +256,7 @@ if menu == "Mark Attendance":
 
         )
 
-          Department = (
 
-            df_students["Department"].unique()
-
-            if "Department" in df_students.columns
-
-            else ["Geography&Environment"]
-
-        )
-
-        selected_year = st.selectbox(
-
-            "Select Academic Year to Mark", academic_years
-
-        )
 
 
 
