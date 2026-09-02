@@ -109,7 +109,7 @@ if menu in protected_pages:
 # -------------------------------------------------------------
 # MARK ATTENDANCE SECTION
 # -------------------------------------------------------------
-elif menu == "Mark Attendance":
+if menu == "Mark Attendance":
     st.header("Mark Daily Attendance")
 
     df_students = load_students()
