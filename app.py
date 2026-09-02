@@ -188,7 +188,7 @@ if menu == "Mark Attendance":
                 attendance_status = {}
 
                 # Table Header Columns
-                h_col1, h_col2, h_col3, h_col4 = st.columns([1.5, 3, 2, 1])
+                h_col1, h_col2, h_col3, h_col4 = st.columns([2, 2, 2, 2])
                 with h_col2:
                     st.markdown("**Student ID**")
                 with h_col3:
