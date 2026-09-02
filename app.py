@@ -108,6 +108,18 @@ if menu in protected_pages:
 
 
 # -------------------------------------------------------------
+# NAVIGATION SIDEBAR
+# -------------------------------------------------------------
+menu_option = st.sidebar.selectbox(
+    "Navigation",
+    ["Mark Attendance", "Student Percentage Checker", "Manage Students"], # আপনার বাকি অপশন
+    key="main_menu"
+)
+
+# Strip spaces to ensure exact string matching
+menu = menu_option.strip()
+
+# -------------------------------------------------------------
 # MARK ATTENDANCE SECTION
 # -------------------------------------------------------------
 if menu == "Mark Attendance":
@@ -188,16 +200,14 @@ if menu == "Mark Attendance":
                 attendance_status = {}
 
                 # Table Header Columns
-               h_col5, h_col1, h_col2, h_col3, h_col4 = st.columns([2,2, 2, 2, 2])
-              with h_col1:
-                    st.markdown()
-            with h_col3:
-                    st.markdown("**Student ID**")
-                with h_col4:
-                    st.markdown("**Student Name**")
-                with h_col5:
-                    st.markdown("**Session**")
+                h_col1, h_col2, h_col3, h_col4 = st.columns([3, 2, 2, 1])
                 with h_col2:
+                    st.markdown("**Student ID**")
+                with h_col3:
+                    st.markdown("**Student Name**")
+                with h_col4:
+                    st.markdown("**Session**")
+                with h_col1:
                     st.markdown("**Status**")
 
                 st.markdown("---")
@@ -210,16 +220,14 @@ if menu == "Mark Attendance":
                         row["Session"] if "Session" in df_students.columns else ""
                     )
 
-                    col1, col2, col3, col4 ,col5= st.columns([2, 2, 2, 2,2])
-                   with col1:
-                        st.write(s_id) 
-                       with col3:
-                        st.write(s_id)
-                    with col4:
-                        st.write(f"**{s_name}**")
-                    with col5:
-                        st.write(s_session)
+                    col1, col2, col3, col4 = st.columns([3, 2, 2, 1])
                     with col2:
+                        st.write(s_id)
+                    with col3:
+                        st.write(f"**{s_name}**")
+                    with col4:
+                        st.write(s_session)
+                    with col1:
                         is_present = st.checkbox(
                             "Present",
                             value=False,
