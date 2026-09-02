@@ -208,7 +208,7 @@ if menu == "Mark Attendance":
                         row["Session"] if "Session" in df_students.columns else ""
                     )
 
-                    col1, col2, col3, col4 = st.columns([1.5, 3, 2, 1])
+                    col1, col2, col3, col4 = st.columns([2, 2, 2, 2])
                     with col2:
                         st.write(s_id)
                     with col3:
