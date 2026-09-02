@@ -181,10 +181,7 @@ if menu == "Mark Attendance":
         st.info("Check the box next to the student if they are **Present**. (Unchecked means **Absent**)")
 
         # স্টুডেন্ট আইডি সর্টিং ড্রপডাউন
-        sort_order = st.selectbox(
-            "Sort Student ID by:",
-            ["Default", "Ascending (Low to High)", "Descending (High to Low)"],
-            key="attendance_id_sort",
+        sort_order = ["Ascending (Low to High)]
         )
 
         if not filtered_students.empty and "Student ID" in filtered_students.columns:
