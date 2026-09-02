@@ -98,11 +98,75 @@ if menu in protected_pages:
                 st.rerun()
             else:
                 st.error("Incorrect password. Access denied.")
-        st.stop()  # Stop execution here until authenticated
+        st.stop()
     else:
         if st.sidebar.button("Lock Admin Session"):
             st.session_state.authenticated = False
             st.rerun()
+
+# -------------------------------------------------------------
+# DEPARTMENT & COURSE DICTIONARY
+# -------------------------------------------------------------
+default_geography_courses = {
+    "1st Year": [
+        "GETh: 1001: Geographical Thoughts and Concepts",
+        "GETh: 1002: Introduction to Physical Geography",
+        "GETh: 1003: Introduction to Human Geography",
+        "GETh: 1004: Concept of Region and World Regional Pattern",
+        "Special Attendance: Occasional"
+    ],
+    "2nd Year": [
+        "GETh: 2001: Environmental Chemistry",
+        "GETh: 2002: Geomorphology",
+        "GETh: 2003: Climatology",
+        "GETh: 2004: Economic Geography",
+        "GETh: 2005: Cultural Geography",
+        "GETh: 2006: Quantitative Techniques in Geography - I",
+        "Special Attendance: Occasional"
+    ],
+    "3rd Year": [
+        "GETh: 3001: Oceanography",
+        "GETh: 3002: Geography of Soil",
+        "GETh: 3003: Biogeography",
+        "GETh: 3004: Population Geography",
+        "GETh: 3005: Geography of Settlement",
+        "GETh: 3006: Geography of Bangladesh",
+        "Special Attendance: Occasional"
+    ],
+    "4th Year": [
+        "GETh: 4001: Hydrology and Fluvial Morphology",
+        "GETh: 4002: Disaster Management",
+        "GETh: 4003: Regional Geography and Environment of South Asia",
+        "GETh: 4004: Transport Geography",
+        "GETh: 4005: Urban Geography",
+        "GETh: 4006: Political Geography",
+        "GELb: 4007: Quantitative Techniques in Geography - II",
+        "Special Attendance: Occasional"
+    ]
+}
+
+department_courses = {
+    "Geography & Environment": default_geography_courses,
+    "Geography&Environment": default_geography_courses,
+    "Math": {
+        "1st Year": ["ME 101: Basic Mechanical Engineering", "ME 102: Engineering Drawing"],
+        "2nd Year": ["ME 201: Thermodynamics", "ME 202: Mechanics of Solids", "ME 203: Fluid Mechanics"],
+        "3rd Year": ["ME 301: Heat Transfer", "ME 302: Machine Design"],
+        "4th Year": ["ME 401: Power Plant Engineering", "ME 402: Automobile Engineering"]
+    },
+    "Physics": {
+        "1st Year": ["CSE 101: Structured Programming Language", "CSE 102: Discrete Mathematics"],
+        "2nd Year": ["CSE 201: Data Structures", "CSE 202: Object Oriented Programming"],
+        "3rd Year": ["CSE 301: Database Management Systems", "CSE 302: Software Engineering"],
+        "4th Year": ["CSE 401: Artificial Intelligence", "CSE 402: Computer Networks"]
+    },
+    "Chemistry": {
+        "1st Year": ["CSE 101: Structured Programming Language", "CSE 102: Discrete Mathematics"],
+        "2nd Year": ["CSE 201: Data Structures", "CSE 202: Object Oriented Programming"],
+        "3rd Year": ["CSE 301: Database Management Systems", "CSE 302: Software Engineering"],
+        "4th Year": ["CSE 401: Artificial Intelligence", "CSE 402: Computer Networks"]
+    }
+}
 
 
 # -------------------------------------------------------------
@@ -118,17 +182,15 @@ if menu == "Mark Attendance":
             "No students found or missing 'Student ID' column in the 'Students' sheet! Please check your Google Sheet headers: [Student ID, Name, Session, Academic Year, Department]."
         )
     else:
-        # ১. ডিপার্টমেন্ট সিলেক্ট করুন
         departments = (
-            df_students["Department"].unique().tolist()
+            df_students["Department"].dropna().unique().tolist()
             if "Department" in df_students.columns
-            else ["Select Department"]
+            else ["Geography & Environment"]
         )
         selected_department = st.selectbox(
-            " Select Department", departments, key="attendance_dept"
+            "Select Department", departments, key="attendance_dept"
         )
 
-        # ডিপার্টমেন্ট অনুযায়ী স্টুডেন্ট ফিল্টার করা
         if "Department" in df_students.columns:
             dept_filtered_students = df_students[
                 df_students["Department"] == selected_department
@@ -136,9 +198,8 @@ if menu == "Mark Attendance":
         else:
             dept_filtered_students = df_students.copy()
 
-        # ২. ডিপার্টমেন্টের অন্তর্ভুক্ত এভেলেবল ইয়ার সিলেক্ট করুন
         available_years = (
-            dept_filtered_students["Academic Year"].unique().tolist()
+            dept_filtered_students["Academic Year"].dropna().unique().tolist()
             if "Academic Year" in dept_filtered_students.columns and not dept_filtered_students.empty
             else ["1st Year", "2nd Year", "3rd Year", "4th Year"]
         )
@@ -146,88 +207,14 @@ if menu == "Mark Attendance":
             "Select Academic Year", available_years, key="attendance_year"
         )
 
-        # ---------------------------------------------------------
-        # ডিপার্টমেন্ট ও ইয়ার অনুযায়ী নির্দিষ্ট কোর্সের তালিকা (Subject Mapping)
-        # ---------------------------------------------------------
-        department_courses = {
-            "Geography & Environment": {
-                "1st Year": [
-                    "GETh: 1001: Geographical Thoughts and Concepts",
-                    "GETh: 1002: Introduction to Physical Geography",
-                    "GETh: 1003: Introduction to Human Geography",
-                    "GETh: 1004: Concept of Region and World Regional Pattern",
-                    "Special Attendance: Occasional"
-                ],
-                "2nd Year": [
-                    "GETh: 2001: Environmental Chemistry",
-                    "GETh: 2002: Geomorphology",
-                    "GETh: 2003: Climatology",
-                    "GETh: 2004: Economic Geography",
-                    "GETh: 2005: Cultural Geography",
-                    "GETh: 2006: Quantitative Techniques in Geography - I",
-                    "Special Attendance: Occasional"
-                ],
-                "3rd Year": [
-                    "GETh: 3001: Oceanography",
-                    "GETh: 3002: Geography of Soil",
-                    "GETh: 3003: Biogeography",
-                    "GETh: 3004: Population Geography",
-                    "GETh: 3005: Geography of Settlement",
-                    "GETh: 3006: Geography of Bangladesh",
-                    "Special Attendance: Occasional"
-                ],
-                "4th Year": [
-                    "GETh: 4001: Hydrology and Fluvial Morphology",
-                    "GETh: 4002: Disaster Management",
-                    "GETh: 4003: Regional Geography and Environment of South Asia",
-                    "GETh: 4004: Transport Geography",
-                    "GETh: 4005: Urban Geography",
-                    "GETh: 4006: Political Geography",
-                    "GELb: 4007: Quantitative Techniques in Geography - II",
-                    "Special Attendance: Occasional"
-                ]
-            },
-            "Math": {
-                "1st Year": [
-                    "ME 101: Basic Mechanical Engineering",
-                    "ME 102: Engineering Drawing"
-                ],
-                "2nd Year": [
-                    "ME 201: Thermodynamics",
-                    "ME 202: Mechanics of Solids",
-                    "ME 203: Fluid Mechanics"
-                ],
-                "3rd Year": [
-                    "ME 301: Heat Transfer",
-                    "ME 302: Machine Design"
-                ],
-                "4th Year": [
-                    "ME 401: Power Plant Engineering",
-                    "ME 402: Automobile Engineering"
-                ]
-            },
-            "Physics": {
-                "1st Year": ["CSE 101: Structured Programming Language", "CSE 102: Discrete Mathematics"],
-                "2nd Year": ["CSE 201: Data Structures", "CSE 202: Object Oriented Programming"],
-                "3rd Year": ["CSE 301: Database Management Systems", "CSE 302: Software Engineering"],
-                "4th Year": ["CSE 401: Artificial Intelligence", "CSE 402: Computer Networks"]
-            },
-            "Chemistry": {
-                "1st Year": ["CSE 101: Structured Programming Language", "CSE 102: Discrete Mathematics"],
-                "2nd Year": ["CSE 201: Data Structures", "CSE 202: Object Oriented Programming"],
-                "3rd Year": ["CSE 301: Database Management Systems", "CSE 302: Software Engineering"],
-                "4th Year": ["CSE 401: Artificial Intelligence", "CSE 402: Computer Networks"]
-            }
-        }
+        clean_selected_dept = str(selected_department).strip()
+        dept_courses = department_courses.get(clean_selected_dept, default_geography_courses)
 
-        # সিলেক্টেড ডিপার্টমেন্ট ও ইয়ার থেকে নির্দিষ্ট কোর্সের সাবজেক্ট ডাইনামিকালি লোড করা
-        dept_courses = department_courses.get(selected_department, {})
-        available_courses = dept_courses.get(selected_year, ["General Course"])
+        clean_selected_year = str(selected_year).strip()
+        available_courses = dept_courses.get(clean_selected_year, ["General Course"])
 
-        # ৩. কোর্স সিলেক্ট করা
-        selected_course = st.selectbox(" Select Course Code & Title", available_courses)
+        selected_course = st.selectbox("Select Course Code & Title", available_courses)
 
-        # ডিপার্টমেন্ট এবং ইয়ার অনুযায়ী ফাইনাল ফিল্টারড স্টুডেন্ট লিস্ট
         filtered_students = dept_filtered_students.copy()
         if "Academic Year" in filtered_students.columns:
             filtered_students = filtered_students[
@@ -239,7 +226,6 @@ if menu == "Mark Attendance":
         st.markdown(f"### Student List for: **{selected_department}** | **{selected_year}** | **{selected_course}**")
         st.info("Check the box next to the student if they are **Present**. (Unchecked means Absent)")
 
-        # আইডি সর্টিং
         sort_order = st.selectbox(
             "Sort Student ID by:",
             ["Ascending (Low to High)", "Descending (High to Low)"],
@@ -263,7 +249,6 @@ if menu == "Mark Attendance":
         with st.form("attendance_form"):
             attendance_status = {}
 
-            # টেবিল হেডার
             h_col1, h_col2, h_col3, h_col4 = st.columns([1, 2, 3, 2])
             with h_col1:
                 st.markdown("**Present**")
@@ -277,7 +262,7 @@ if menu == "Mark Attendance":
             st.markdown("---")
 
             if filtered_students.empty:
-                st.warning("এই ডিপার্টমেন্ট এবং ইয়ারে কোনো স্টুডেন্ট পাওয়া যায়নি।")
+                st.warning("এই ডিপার্টমেন্ট এবং ইয়ারে কোনো স্টুডেন্ট পাওয়া যায়নি।")
             else:
                 for index, row in filtered_students.iterrows():
                     s_id = str(row["Student ID"])
@@ -333,3 +318,101 @@ if menu == "Mark Attendance":
                 st.success(
                     f"Attendance successfully saved to Google Sheets for **{selected_department}** ({selected_course}) on {att_date}!"
                 )
+
+
+# -------------------------------------------------------------
+# 5. STUDENT PERCENTAGE CHECKER
+# -------------------------------------------------------------
+elif menu == "Student Percentage Checker":
+    st.header("Student Attendance Percentage Checker")
+
+    df_attendance = load_attendance()
+    df_students = load_students()
+
+    if df_attendance.empty:
+        st.info("No attendance records found in the Google Sheet.")
+    else:
+        # ডিপার্টমেন্ট ফিল্টার
+        dept_list = ["All"]
+        if "Department" in df_attendance.columns:
+            dept_list += df_attendance["Department"].dropna().unique().tolist()
+        elif "Department" in df_students.columns:
+            dept_list += df_students["Department"].dropna().unique().tolist()
+
+        selected_dept = st.selectbox("Select Department", dept_list, key="pct_dept")
+
+        # ফিল্টার প্রয়োগ
+        filtered_att = df_attendance.copy()
+        if selected_dept != "All" and "Department" in filtered_att.columns:
+            filtered_att = filtered_att[filtered_att["Department"] == selected_dept]
+
+        # কোর্স সিলেক্ট করার অপশন
+        course_list = ["All Courses"]
+        if "Course" in filtered_att.columns:
+            course_list += filtered_att["Course"].dropna().unique().tolist()
+
+        selected_course = st.selectbox("Select Course/Subject", course_list, key="pct_course")
+
+        if selected_course != "All Courses" and "Course" in filtered_att.columns:
+            filtered_att = filtered_att[filtered_att["Course"] == selected_course]
+
+        if filtered_att.empty:
+            st.warning("No attendance records found for the selected filters.")
+        else:
+            # ডাটা প্রসেসিং ও হিসাব
+            filtered_att["Student ID"] = filtered_att["Student ID"].astype(str)
+
+            # মোট কতটি ক্লাস হয়েছে
+            if selected_course != "All Courses" and "Date" in filtered_att.columns:
+                total_classes = filtered_att["Date"].nunique()
+            else:
+                total_classes = filtered_att.groupby("Student ID")["Status"].count().max()
+
+            # প্রতিটি স্টুডেন্টের প্রেজেন্ট ও অ্যাবসেন্ট গণনা
+            summary_list = []
+            grouped = filtered_att.groupby(["Student ID", "Name"])
+
+            for (s_id, name), group in grouped:
+                total_recorded = len(group)
+                p_count = (group["Status"] == "Present").sum()
+                a_count = (group["Status"] == "Absent").sum()
+
+                base_total = total_classes if total_classes > 0 else total_recorded
+                percentage = round((p_count / base_total) * 100, 2) if base_total > 0 else 0.0
+
+                summary_list.append({
+                    "Student ID": s_id,
+                    "Name": name,
+                    "Total Classes": base_total,
+                    "Present": p_count,
+                    "Absent": a_count,
+                    "Attendance Percentage (%)": percentage
+                })
+
+            summary_df = pd.DataFrame(summary_list)
+
+            # আইডি নিউমেরিক সর্টিং
+            try:
+                summary_df["_sort_id"] = pd.to_numeric(summary_df["Student ID"])
+                summary_df = summary_df.sort_values(by="_sort_id", ascending=True).drop(columns=["_sort_id"])
+            except Exception:
+                pass
+
+            st.markdown(f"### Summary for Department: **{selected_dept}** | Course: **{selected_course}**")
+            st.dataframe(summary_df, use_container_width=True)
+
+            # ইন্ডিভিজুয়াল স্টুডেন্ট সার্চিং অপশন
+            st.markdown("---")
+            st.subheader("Search Individual Student Record")
+            search_id = st.text_input("Enter Student ID to check:")
+
+            if search_id:
+                student_data = summary_df[summary_df["Student ID"] == str(search_id).strip()]
+                if not student_data.empty:
+                    row = student_data.iloc[0]
+                    st.success(f"**Name:** {row['Name']}")
+                    st.metric(label="Attendance Percentage", value=f"{row['Attendance Percentage (%)']}%")
+                    st.progress(float(row['Attendance Percentage (%)']) / 100)
+                    st.write(f"**Total Classes:** {row['Total Classes']} | **Present:** {row['Present']} | **Absent:** {row['Absent']}")
+                else:
+                    st.error("Student ID not found in the records.")
