@@ -122,7 +122,7 @@ if menu == "Mark Attendance":
         departments = (
             df_students["Department"].unique().tolist()
             if "Department" in df_students.columns
-            else ["Geography & Environment", "Mechanical Engineering", "Computer Science"]
+            else ["Select Department"]
         )
         selected_department = st.selectbox(
             "১. Select Department", departments, key="attendance_dept"
@@ -187,7 +187,7 @@ if menu == "Mark Attendance":
                     "Special Attendance: Occasional"
                 ]
             },
-            "Mechanical Engineering": {
+            "Math": {
                 "1st Year": [
                     "ME 101: Basic Mechanical Engineering",
                     "ME 102: Engineering Drawing"
@@ -206,7 +206,13 @@ if menu == "Mark Attendance":
                     "ME 402: Automobile Engineering"
                 ]
             },
-            "Computer Science": {
+            "Physics": {
+                "1st Year": ["CSE 101: Structured Programming Language", "CSE 102: Discrete Mathematics"],
+                "2nd Year": ["CSE 201: Data Structures", "CSE 202: Object Oriented Programming"],
+                "3rd Year": ["CSE 301: Database Management Systems", "CSE 302: Software Engineering"],
+                "4th Year": ["CSE 401: Artificial Intelligence", "CSE 402: Computer Networks"]
+            }
+            "Chemistry": {
                 "1st Year": ["CSE 101: Structured Programming Language", "CSE 102: Discrete Mathematics"],
                 "2nd Year": ["CSE 201: Data Structures", "CSE 202: Object Oriented Programming"],
                 "3rd Year": ["CSE 301: Database Management Systems", "CSE 302: Software Engineering"],
