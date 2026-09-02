@@ -426,19 +426,7 @@ elif menu == "Student Percentage Checker":
 
     if df_students.empty:
         st.warning("No student records found in 'Students' sheet!")
-    else:
-        # Academic Year Filter
-        year_list = ["All Years"]
-        if "Academic Year" in df_students.columns:
-            year_list += df_students["Academic Year"].dropna().unique().tolist()
-        
-        selected_year = st.selectbox("Select Academic Year", year_list, key="pct_year")
-
-        filtered_students = df_students.copy()
-        if selected_year != "All Years" and "Academic Year" in filtered_students.columns:
-            filtered_students = filtered_students[filtered_students["Academic Year"] == selected_year]
-
-        st.markdown("---")
+   
         
         # Blank ID input box by default
         input_student_id = st.text_input(
