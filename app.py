@@ -427,7 +427,13 @@ elif menu == "Student Percentage Checker":
     if df_students.empty:
         st.warning("No student records found in 'Students' sheet!")
     else:
-       
+        
+
+        filtered_students = df_students.copy()
+        if selected_year != "All Years" and "Academic Year" in filtered_students.columns:
+            filtered_students = filtered_students[filtered_students["Academic Year"] == selected_year]
+
+        st.markdown("---")
         
         # Blank ID input box by default
         input_student_id = st.text_input(
