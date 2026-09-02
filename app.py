@@ -134,7 +134,8 @@ if menu == "Mark Attendance":
                 "GETh: 1001: Geographical Thoughts and Concepts",
                 "GETh: 1002: Introduction to Physical Geography",
                 "GETh: 1003: Introduction to Human Geography",
-                "GETh: 1004: Concept of Region and World Regional Pattern"
+                "GETh: 1004: Concept of Region and World Regional Pattern",
+                "Special Attendence: Occasional"
             ],
             "2nd Year": [
                 "GETh: 2001: Environmental Chemistry",
@@ -142,7 +143,8 @@ if menu == "Mark Attendance":
                 "GETh: 2003: Climatology",
                 "GETh: 2004: Economic Geography",
                 "GETh: 2005: Cultural Geography",
-                "GETh: 2006: Quantitative Techniques in Geography - I"
+                "GETh: 2006: Quantitative Techniques in Geography - I",
+                "Special Attendence: Occasional"
             ],
             "3rd Year": [
                 "GETh: 3001: Oceanography",
@@ -150,7 +152,8 @@ if menu == "Mark Attendance":
                 "GETh: 3003: Biogeography",
                 "GETh: 3004: Population Geography",
                 "GETh: 3005: Geography of Settlement",
-                "GETh: 3006: Geography of Bangladesh"
+                "GETh: 3006: Geography of Bangladesh",
+                "Special Attendence: Occasional"
             ],
             "4th Year": [
                 "GETh: 4001: Hydrology and Fluvial Morphology",
@@ -159,7 +162,8 @@ if menu == "Mark Attendance":
                 "GETh: 4004: Transport Geography",
                 "GETh: 4005: Urban Geography",
                 "GETh: 4006: Political Geography",
-                "GELb: 4007: Quantitative Techniques in Geography - II"
+                "GELb: 4007: Quantitative Techniques in Geography - II",
+                "Special Attendence: Occasional"
             ]
         }
 
