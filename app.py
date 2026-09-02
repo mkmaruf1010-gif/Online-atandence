@@ -109,7 +109,7 @@ if menu in protected_pages:
 # -------------------------------------------------------------
 # MARK ATTENDANCE SECTION
 # -------------------------------------------------------------
-if menu == "Mark Attendance":
+elif menu == "Mark Attendance":
     st.header("Mark Daily Attendance")
 
     df_students = load_students()
@@ -180,7 +180,7 @@ if menu == "Mark Attendance":
             "Check the box next to the student if they are **Present**. (Unchecked means **Absent**)"
         )
 
-      if filtered_students.empty:
+        if filtered_students.empty:
             st.warning(f"No students registered under {selected_year}.")
         else:
             with st.form("attendance_form"):
@@ -229,6 +229,36 @@ if menu == "Mark Attendance":
 
                 st.markdown("---")
                 submitted = st.form_submit_button("Save Attendance", use_container_width=True)
+
+                if submitted:
+                    df_attendance = load_attendance()
+
+                    if df_attendance.empty:
+                        rows_to_save = [
+                            ["Date", "Course", "Student ID", "Name", "Status"]
+                        ]
+                    else:
+                        rows_to_save = [
+                            df_attendance.columns.tolist()
+                        ] + df_attendance.values.tolist()
+
+                    for s_id, data in attendance_status.items():
+                        rows_to_save.append(
+                            [
+                                str(att_date),
+                                str(selected_course),
+                                str(s_id),
+                                str(data["Name"]),
+                                str(data["Status"]),
+                            ]
+                        )
+
+                    attendance_worksheet.clear()
+                    attendance_worksheet.update(rows_to_save)
+
+                    st.success(
+                        f"Attendance successfully saved to Google Sheets for {selected_course} on {att_date}!"
+                    )
 # -------------------------------------------------------------
 # 2. REGISTER STUDENT
 # -------------------------------------------------------------
