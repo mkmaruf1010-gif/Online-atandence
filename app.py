@@ -381,7 +381,7 @@ elif menu == "Student Percentage Checker":
         st.warning("No student records found in 'Students' sheet!")
     else:
         # Academic Year Filter
-        year_list = ["All Years"]
+        year_list = 
         if "Academic Year" in df_students.columns:
             year_list += df_students["Academic Year"].dropna().unique().tolist()
         
