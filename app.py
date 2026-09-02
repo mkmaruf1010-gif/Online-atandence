@@ -432,7 +432,7 @@ elif menu == "Student Percentage Checker":
         if "Academic Year" in df_students.columns:
             year_list += df_students["Academic Year"].dropna().unique().tolist()
         
-       
+        selected_year = st.selectbox("Select Academic Year", year_list, key="pct_year")
 
         filtered_students = df_students.copy()
         if selected_year != "All Years" and "Academic Year" in filtered_students.columns:
