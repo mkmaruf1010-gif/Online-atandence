@@ -122,7 +122,7 @@ if menu == "Mark Attendance":
         departments = (
             df_students["Department"].unique().tolist()
             if "Department" in df_students.columns
-            else ["Geography&Environment", "Mechanical Engineering", "Computer Science"]
+            else ["Geography & Environment", "Mechanical Engineering", "Computer Science"]
         )
         selected_department = st.selectbox(
             "১. Select Department", departments, key="attendance_dept"
@@ -150,7 +150,7 @@ if menu == "Mark Attendance":
         # ডিপার্টমেন্ট ও ইয়ার অনুযায়ী নির্দিষ্ট কোর্সের তালিকা (Subject Mapping)
         # ---------------------------------------------------------
         department_courses = {
-            "Geography&Environment": {
+            "Geography & Environment": {
                 "1st Year": [
                     "GETh: 1001: Geographical Thoughts and Concepts",
                     "GETh: 1002: Introduction to Physical Geography",
