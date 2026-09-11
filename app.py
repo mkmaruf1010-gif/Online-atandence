@@ -20,8 +20,8 @@ st.set_page_config(
 # -------------------------------------------------------------
 # DEPARTMENT LOCATION SETUP (GOVT. BANGLA COLLEGE - GEO)
 # -------------------------------------------------------------
-DEPT_LAT = 23.7806  # আপনার ডিপার্টমেন্টের সঠিক Latitude
-DEPT_LON = 90.3542  # আপনার ডিপার্টমেন্টের সঠিক Longitude
+DEPT_LAT = 90.386524  # আপনার ডিপার্টমেন্টের সঠিক Latitude
+DEPT_LON = 23.826355  # আপনার ডিপার্টমেন্টের সঠিক Longitude
 MAX_DISTANCE_METERS = 50.0  # ব্যাসার্ধ (মিটারে)
 
 
