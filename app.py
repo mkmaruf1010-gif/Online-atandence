@@ -9,28 +9,25 @@ from PIL import Image
 import qrcode
 import requests
 import streamlit as st
-import streamlit.components.v1 as components
+from streamlit_js_eval import get_geolocation
 
-# -------------------------------------------------------------
-# PAGE CONFIGURATION
-# -------------------------------------------------------------
+# Page Configuration
 st.set_page_config(
     page_title="OASIS - Attendance System",
     layout="wide",
 )
 
 # -------------------------------------------------------------
-# DEPARTMENT LOCATION & BOUNDARY SETUP
+# DEPARTMENT LOCATION SETUP (GOVT. BANGLA COLLEGE - GEO)
 # -------------------------------------------------------------
-# Govt. Bangla College - Geography & Environment Dept (Approx Coordinates)
-DEPT_LAT = 23.826355  # আপনার ডিপার্টমেন্টের গুগল ম্যাপস থেকে সঠিক Latitude দিন
-DEPT_LON = 90.386524  # আপনার ডিপার্টমেন্টের গুগল ম্যাপস থেকে সঠিক Longitude দিন
-MAX_DISTANCE_METERS = 50.0  # অনুমোদিত সর্বোচ্চ দূরত্ব (মিটারে)
+DEPT_LAT = 23.7806  # আপনার ডিপার্টমেন্টের সঠিক Latitude
+DEPT_LON = 90.3542  # আপনার ডিপার্টমেন্টের সঠিক Longitude
+MAX_DISTANCE_METERS = 50.0  # ব্যাসার্ধ (মিটারে)
 
 
 def haversine_distance(lat1, lon1, lat2, lon2):
-    """দুইটি GPS কোঅর্ডিনেটের মধ্যবর্তী দূরত্ব (মিটারে) বের করার ফাংশন"""
-    R = 6371000.0  # পৃথিবীর ব্যাসার্ধ (মিটারে)
+    """দুইটি জিপিএস পয়েন্টের দূরত্ব (মিটারে) বের করার ফর্মুলা"""
+    R = 6371000.0
     phi1 = math.radians(lat1)
     phi2 = math.radians(lat2)
     delta_phi = math.radians(lat2 - lat1)
@@ -69,9 +66,7 @@ try:
     students_worksheet = sheet.worksheet("Students")
     attendance_worksheet = sheet.worksheet("Attendance")
 except Exception as e:
-    st.error(
-        f"Failed to connect to Google Sheets. Check your secrets configuration. Error: {e}"
-    )
+    st.error(f"Failed to connect to Google Sheets. Error: {e}")
     st.stop()
 
 
@@ -100,77 +95,36 @@ url_date = query_params.get("date", None)
 url_passcode = query_params.get("pass", None)
 
 # -------------------------------------------------------------
-# 1. STUDENT PORTAL (LOCATION BASED VALIDATION)
+# 1. STUDENT PORTAL (AUTOMATIC GEOLOCATION VERIFICATION)
 # -------------------------------------------------------------
 if url_course and url_date and url_passcode:
     st.title("🎓 OASIS - Online Student Attendance Portal")
     st.markdown("---")
 
-    st.subheader("📍 Geolocation Verification")
+    # অটোমেটিক ব্রাউজার জিপিএস ফেচিং
+    loc = get_geolocation()
 
-    # JavaScript integration to capture HTML5 geolocation
-    loc_html = """
-    <script>
-    function sendPosition(position) {
-        const data = {
-            lat: position.coords.latitude,
-            lon: position.coords.longitude,
-            error: null
-        };
-        window.parent.postMessage({type: 'streamlit:setComponentValue', value: data}, '*');
-    }
-    function sendError(error) {
-        const data = {
-            lat: null,
-            lon: null,
-            error: error.message
-        };
-        window.parent.postMessage({type: 'streamlit:setComponentValue', value: data}, '*');
-    }
-    if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(sendPosition, sendError, {
-            enableHighAccuracy: true,
-            timeout: 10000,
-            maximumAge: 0
-        });
-    }
-    </script>
-    """
-
-    loc_result = components.html(loc_html, height=0)
-
-    # Streamlit geolocation input fallbacks
-    col_lat, col_lon = st.columns(2)
-    with col_lat:
-        user_lat = st.number_input(
-            "Detected Latitude", value=0.0, format="%.6f", key="u_lat"
-        )
-    with col_lon:
-        user_lon = st.number_input(
-            "Detected Longitude", value=0.0, format="%.6f", key="u_lon"
-        )
-
-    if user_lat == 0.0 or user_lon == 0.0:
-        st.info(
-            "💡 ব্রাউজারে Location Permission Allow করুন অথবা আপনার ডিভাইসের জিপিএস থেকে প্রাপ্ত Latitude এবং Longitude ইনপুট ঘরে লিখুন।"
-        )
+    if not loc:
+        st.info("🔄 অবস্থান যাচাই করা হচ্ছে... ফোনের GPS চালু রাখুন এবং ব্রাউজারে Location Permission 'Allow' করুন।")
         st.stop()
 
+    user_lat = loc.get("coords", {}).get("latitude")
+    user_lon = loc.get("coords", {}).get("longitude")
+
+    if not user_lat or not user_lon:
+        st.error("🚫 আপনার লোকেশন সিগন্যাল পাওয়া যায়নি। ফোনের জিপিএস চালু করে পেজটি রিফ্রেশ করুন।")
+        st.stop()
+
+    # অটোমেটিক দূরত্ব গণনা
     distance = haversine_distance(DEPT_LAT, DEPT_LON, user_lat, user_lon)
 
     if distance > MAX_DISTANCE_METERS:
         st.error("🚫 Access Denied!")
-        st.warning(
-            f"আপনি ডিপার্টমেন্ট সীমানার বাইরে আছেন! আপনার বর্তমান দূরত্ব: {int(distance)} মিটার।"
-        )
-        st.info(
-            f"💡 উপস্থিতি সাবমিট করতে ডিপার্টমেন্টের {int(MAX_DISTANCE_METERS)} মিটারের মধ্যে উপস্থিত থাকুন।"
-        )
+        st.warning(f"আপনি ডিপার্টমেন্ট সীমানার বাইরে আছেন! ডিপার্টমেন্ট থেকে আপনার বর্তমান দূরত্ব: {int(distance)} মিটার।")
+        st.info(f"💡 উপস্থিতি সাবমিট করতে ডিপার্টমেন্টের {int(MAX_DISTANCE_METERS)} মিটারের মধ্যে থাকতে হবে।")
         st.stop()
-    else:
-        st.success(
-            f"📍 Location Verified! আপনি ডিপার্টমেন্ট সীমানার ভেতরে আছেন (দূরত্ব: {int(distance)} মিটার)।"
-        )
+
+    st.success(f"📍 Location Verified! আপনি ক্লাসরুমের সীমানার ভেতরে আছেন ({int(distance)} মিটার দূরে)।")
 
     st.markdown("---")
     st.subheader("📌 Class Details")
@@ -188,9 +142,7 @@ if url_course and url_date and url_passcode:
             placeholder="Ask your teacher for passcode",
         ).strip()
 
-        submit_btn = st.form_submit_button(
-            "Submit Attendance", use_container_width=True
-        )
+        submit_btn = st.form_submit_button("Submit Attendance", use_container_width=True)
 
         if submit_btn:
             if not student_id_input or not entered_passcode:
@@ -199,42 +151,23 @@ if url_course and url_date and url_passcode:
                 st.error("❌ Invalid Classroom Passcode!")
             else:
                 matched_student = df_students[
-                    df_students["Student ID"].astype(str).str.strip()
-                    == student_id_input
+                    df_students["Student ID"].astype(str).str.strip() == student_id_input
                 ]
 
                 if matched_student.empty:
-                    st.error(
-                        f"❌ Student ID '{student_id_input}' is not registered."
-                    )
+                    st.error(f"❌ Student ID '{student_id_input}' is not registered.")
                 else:
                     student_name = matched_student.iloc[0]["Name"]
                     df_attendance = load_attendance()
 
-                    if (
-                        not df_attendance.empty
-                        and "Student ID" in df_attendance.columns
-                    ):
+                    if not df_attendance.empty and "Student ID" in df_attendance.columns:
                         already_submitted = df_attendance[
-                            (
-                                df_attendance["Student ID"]
-                                .astype(str)
-                                .str.strip()
-                                == student_id_input
-                            )
-                            & (
-                                df_attendance["Course"].astype(str).str.strip()
-                                == url_course
-                            )
-                            & (
-                                df_attendance["Date"].astype(str).str.strip()
-                                == url_date
-                            )
+                            (df_attendance["Student ID"].astype(str).str.strip() == student_id_input)
+                            & (df_attendance["Course"].astype(str).str.strip() == url_course)
+                            & (df_attendance["Date"].astype(str).str.strip() == url_date)
                         ]
                         if not already_submitted.empty:
-                            st.warning(
-                                f"⚠️ {student_name} ({student_id_input}), your attendance is already recorded for this class!"
-                            )
+                            st.warning(f"⚠️ {student_name} ({student_id_input}), your attendance is already recorded!")
                             st.stop()
 
                     attendance_worksheet.append_row([
@@ -245,9 +178,7 @@ if url_course and url_date and url_passcode:
                         "Present",
                     ])
                     st.balloons()
-                    st.success(
-                        f"✅ Attendance Marked for **{student_name}** ({student_id_input})!"
-                    )
+                    st.success(f"✅ Attendance Marked for **{student_name}** ({student_id_input})!")
 
 # -------------------------------------------------------------
 # MAIN APP NAVIGATION (ADMIN / TEACHER PANEL)
@@ -282,14 +213,10 @@ else:
             st.header("Admin Access Required")
             st.warning("Please enter the password to access this section.")
 
-            entered_password = st.text_input(
-                "Enter Admin Password", type="password"
-            )
+            entered_password = st.text_input("Enter Admin Password", type="password")
 
             if st.button("Login"):
-                if entered_password == st.secrets.get(
-                    "admin_password", "default_password"
-                ):
+                if entered_password == st.secrets.get("admin_password", "default_password"):
                     st.session_state.authenticated = True
                     st.success("Access granted!")
                     st.rerun()
@@ -349,15 +276,11 @@ else:
                 ],
             }
 
-            available_courses = year_courses.get(
-                selected_year, ["General Course"]
-            )
+            available_courses = year_courses.get(selected_year, ["General Course"])
             selected_course = st.selectbox("Select Course", available_courses)
             att_date = st.date_input("Select Session Date", value=date.today())
 
-            class_passcode = st.text_input(
-                "Set Temporary Class Passcode", value="1234"
-            )
+            class_passcode = st.text_input("Set Temporary Class Passcode", value="1234")
 
             if st.button("Generate Session Link & QR"):
                 base_url = "https://geoenvgbcattendence.streamlit.app/"
@@ -391,11 +314,7 @@ else:
 
                 with col2:
                     st.markdown("### 📱 Scan QR Code")
-                    st.image(
-                        byte_im,
-                        caption="Scan to Mark Attendance",
-                        width=250,
-                    )
+                    st.image(byte_im, caption="Scan to Mark Attendance", width=250)
 
     # -------------------------------------------------------------
     # 2. REGISTER STUDENT
@@ -410,8 +329,7 @@ else:
                 "Session", [f"20{i:02d}-{i+1:02d}" for i in range(21, 40)]
             )
             academic_year = st.selectbox(
-                "Academic Year",
-                ["1st Year", "2nd Year", "3rd Year", "4th Year"],
+                "Academic Year", ["1st Year", "2nd Year", "3rd Year", "4th Year"]
             )
 
             submit_student = st.form_submit_button("Add Student")
@@ -423,8 +341,7 @@ else:
                     df_students = load_students()
                     if (
                         not df_students.empty
-                        and str(student_id)
-                        in df_students["Student ID"].astype(str).values
+                        and str(student_id) in df_students["Student ID"].astype(str).values
                     ):
                         st.error(f"Student ID '{student_id}' already exists!")
                     else:
@@ -434,9 +351,7 @@ else:
                             department,
                             academic_year,
                         ])
-                        st.success(
-                            f"Student {name} (ID: {student_id}) added!"
-                        )
+                        st.success(f"Student {name} (ID: {student_id}) added!")
 
     # -------------------------------------------------------------
     # 3. VIEW RECORDS
@@ -453,9 +368,7 @@ else:
 
             with filter_col1:
                 unique_dates = df_attendance["Date"].unique().tolist()
-                selected_date = st.selectbox(
-                    "Filter by Date", ["All Dates"] + unique_dates
-                )
+                selected_date = st.selectbox("Filter by Date", ["All Dates"] + unique_dates)
 
             with filter_col2:
                 courses = (
@@ -463,21 +376,15 @@ else:
                     if "Course" in df_attendance.columns
                     else []
                 )
-                selected_course_filter = st.selectbox(
-                    "Filter by Course", ["All Courses"] + courses
-                )
+                selected_course_filter = st.selectbox("Filter by Course", ["All Courses"] + courses)
 
             filtered_df = df_attendance.copy()
 
             if selected_date != "All Dates":
-                filtered_df = filtered_df[
-                    filtered_df["Date"] == selected_date
-                ]
+                filtered_df = filtered_df[filtered_df["Date"] == selected_date]
 
             if selected_course_filter != "All Courses":
-                filtered_df = filtered_df[
-                    filtered_df["Course"] == selected_course_filter
-                ]
+                filtered_df = filtered_df[filtered_df["Course"] == selected_course_filter]
 
             st.dataframe(filtered_df, use_container_width=True)
 
@@ -535,8 +442,7 @@ else:
                 st.info("Please enter your Student ID above.")
             else:
                 matched_student = df_students[
-                    df_students["Student ID"].astype(str).str.strip()
-                    == input_student_id
+                    df_students["Student ID"].astype(str).str.strip() == input_student_id
                 ]
 
                 if matched_student.empty:
@@ -545,13 +451,9 @@ else:
                     student_name = matched_student.iloc[0]["Name"]
                     filtered_att = df_attendance.copy()
 
-                    if (
-                        not filtered_att.empty
-                        and "Student ID" in filtered_att.columns
-                    ):
+                    if not filtered_att.empty and "Student ID" in filtered_att.columns:
                         st_att = filtered_att[
-                            filtered_att["Student ID"].astype(str).str.strip()
-                            == input_student_id
+                            filtered_att["Student ID"].astype(str).str.strip() == input_student_id
                         ]
                         total_recorded = len(st_att)
                         p_count = int((st_att["Status"] == "Present").sum())
@@ -566,9 +468,7 @@ else:
                         else 0.0
                     )
 
-                    st.markdown(
-                        f"### Summary: **{student_name}** (ID: {input_student_id})"
-                    )
+                    st.markdown(f"### Summary: **{student_name}** (ID: {input_student_id})")
                     st.metric(label="Attendance Percentage", value=f"{percentage}%")
                     st.progress(float(percentage) / 100)
 
