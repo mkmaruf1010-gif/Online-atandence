@@ -23,8 +23,8 @@ st.set_page_config(
 # DEPARTMENT LOCATION & BOUNDARY SETUP
 # -------------------------------------------------------------
 # Govt. Bangla College - Geography & Environment Dept (Approx Coordinates)
-DEPT_LAT = 23.7806  # আপনার ডিপার্টমেন্টের গুগল ম্যাপস থেকে সঠিক Latitude দিন
-DEPT_LON = 90.3542  # আপনার ডিপার্টমেন্টের গুগল ম্যাপস থেকে সঠিক Longitude দিন
+DEPT_LAT = 23.826355  # আপনার ডিপার্টমেন্টের গুগল ম্যাপস থেকে সঠিক Latitude দিন
+DEPT_LON = 90.386524  # আপনার ডিপার্টমেন্টের গুগল ম্যাপস থেকে সঠিক Longitude দিন
 MAX_DISTANCE_METERS = 50.0  # অনুমোদিত সর্বোচ্চ দূরত্ব (মিটারে)
 
 
