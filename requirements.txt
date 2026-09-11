@@ -4,5 +4,3 @@ google-auth
 pandas
 pillow
 opencv-python-headless
-dlib-bin
-face-recognition
