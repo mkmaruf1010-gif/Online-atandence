@@ -90,7 +90,7 @@ if url_course and url_date and url_passcode:
 
     # 🔴 আপনার ডিপার্টমেন্ট ওয়াইফাই এর Subnet Prefix (আইপির প্রথম ৩ অংশ)
     # যেমন: "34.127.88." দিলে 34.127.88.1 থেকে 34.127.88.255 সবই গ্রহণযোগ্য হবে
-    ALLOWED_SUBNET_PREFIX = "34.127.88."
+    ALLOWED_SUBNET_PREFIX = "103.126.60."
 
     client_ip = get_real_client_ip()
 
