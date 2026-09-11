@@ -1,12 +1,12 @@
 from datetime import date
+import os
 import gspread
 from google.oauth2.service_account import Credentials
 import pandas as pd
 import streamlit as st
-import face_recognition
+import cv2
 import numpy as np
 from PIL import Image
-import os
 
 # Page Configuration
 st.set_page_config(
@@ -54,31 +54,32 @@ def load_students():
 
 
 def load_attendance():
-    @st.cache_data
-def load_known_faces(student_ids):
-    known_face_encodings = []
-    known_face_ids = []
+    data = attendance_worksheet.get_all_records()
+    df = pd.DataFrame(data)
+    if not df.empty:
+        df.columns = df.columns.str.strip()
+    return df
 
-    for s_id in student_ids:
-        s_id = str(s_id).strip()
-        # jpg, jpeg এবং png ফরম্যাট সাপোর্ট করার জন্য
-        for ext in [".jpg", ".jpeg", ".png"]:
-            image_path = f"known_faces/{s_id}{ext}"
-            if os.path.exists(image_path):
-                try:
-                    student_img = face_recognition.load_image_file(image_path)
-                    encodings = face_recognition.face_encodings(student_img)
-                    if encodings:
-                        known_face_encodings.append(encodings[0])
-                        known_face_ids.append(s_id)
-                        break
-                except Exception:
-                    pass
-    return known_face_encodings, known_face_ids
+
+# -------------------------------------------------------------
+# FAST FACE DETECTION FUNCTION (OpenCV)
+# -------------------------------------------------------------
+def detect_faces(image):
+    # Convert PIL Image to OpenCV format
+    img_array = np.array(image.convert('RGB'))
+    gray = cv2.cvtColor(img_array, cv2.COLOR_RGB2GRAY)
+    
+    # Load Haar Cascade Classifier
+    cascade_path = cv2.data.haarcascades + 'haarcascade_frontalface_default.xml'
+    face_cascade = cv2.CascadeClassifier(cascade_path)
+    
+    faces = face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(30, 30))
+    return len(faces) > 0, img_array
 
 
 st.title("OASIS")
 st.markdown("---")
+
 # Sidebar Navigation
 menu = st.sidebar.selectbox(
     "Navigation",
@@ -101,7 +102,7 @@ if menu in protected_pages:
         st.session_state.authenticated = False
 
     if not st.session_state.authenticated:
-        st.header(f" Admin Access Required")
+        st.header("Admin Access Required")
         st.warning("Please enter the password to access this section.")
 
         entered_password = st.text_input(
@@ -117,25 +118,23 @@ if menu in protected_pages:
                 st.rerun()
             else:
                 st.error("Incorrect password. Access denied.")
-        st.stop()  # Stop execution here until authenticated
+        st.stop()
     else:
-        # Option to log out / lock again from sidebar or page
         if st.sidebar.button("Lock Admin Session"):
             st.session_state.authenticated = False
             st.rerun()
 
 # -------------------------------------------------------------
-# 1. MARK ATTENDANCE (MODIFIED WITH FACE RECOGNITION)
+# 1. MARK ATTENDANCE (FAST & LIGHTWEIGHT)
 # -------------------------------------------------------------
-
 if menu == "Mark Attendance":
-    st.header("Mark Daily Attendance via Face Recognition")
+    st.header("Mark Daily Attendance via Smart Camera Scan")
 
     df_students = load_students()
 
     if df_students.empty or "Student ID" not in df_students.columns:
         st.warning(
-            "No students found or missing 'Student ID' column in the 'Students' sheet! Please check your Google Sheet headers: [Student ID, Name, Session, Academic Year]."
+            "No students found or missing 'Student ID' column in the 'Students' sheet!"
         )
     else:
         academic_years = (
@@ -147,7 +146,6 @@ if menu == "Mark Attendance":
             "Select Academic Year to Mark", academic_years
         )
 
-        # ইয়ার অনুযায়ী কোর্সসমূহের তালিকা
         year_courses = {
             "1st Year": [
                 "GETh: 1001: Geographical Thoughts and Concepts",
@@ -182,58 +180,34 @@ if menu == "Mark Attendance":
             ],
         }
 
-        # সিলেক্টেড ইয়ারের আন্ডারে কোর্স ফিল্টার করা
         available_courses = year_courses.get(selected_year, ["General Course"])
         selected_course = st.selectbox("Select Course Code & Title", available_courses)
 
-        filtered_students = df_students.copy()
-        if selected_year != "All" and "Academic Year" in df_students.columns:
-            filtered_students = df_students[
-                df_students["Academic Year"] == selected_year
-            ]
-
+        filtered_students = df_students[df_students["Academic Year"] == selected_year] if "Academic Year" in df_students.columns else df_students
         att_date = st.date_input("Select Date", value=date.today())
 
-        st.markdown(f"### Student Face Scanning for {selected_year} - {selected_course}")
-        st.info("📷 Turn on camera, capture image, and system will automatically detect the student's face.")
+        st.markdown(f"### Student Selection & Verification")
+        
+        # স্টুডেন্ট সিলেক্ট করার বক্স
+        student_list = filtered_students["Student ID"].astype(str).tolist() if not filtered_students.empty else []
+        selected_student_id = st.selectbox("Select Student ID for Verification:", student_list)
 
-       # ১. জানা শিক্ষার্থী সম্পর্কিত ফেস ডাটাবেজ লোড করা (Cached)
-        student_ids_list = filtered_students["Student ID"].tolist()
-        known_face_encodings, known_face_ids = load_known_faces(student_ids_list)
+        if selected_student_id:
+            student_info = filtered_students[filtered_students["Student ID"].astype(str) == selected_student_id]
+            student_name = student_info.iloc[0]["Name"] if not student_info.empty else "N/A"
+            st.info(f"👤 Selected Student: **{student_name}** (ID: {selected_student_id})")
 
-        # ২. ক্যামেরা ইনপুট
-        img_buffer = st.camera_input("Take a photo to scan face")
+            # ক্যামেরা ইনপুট
+            img_buffer = st.camera_input("Take photo for Face Detection Attendance")
 
-        if img_buffer is not None:
-            if not known_face_encodings:
-                st.error("No reference face images found in 'known_faces/' folder for selected year students!")
-            else:
-                # লাইভ ছবি রিড করা
-                captured_image = face_recognition.load_image_file(img_buffer)
-                face_locations = face_recognition.face_locations(captured_image)
-                captured_encodings = face_recognition.face_encodings(captured_image, face_locations)
+            if img_buffer is not None:
+                image = Image.open(img_buffer)
+                face_found, _ = detect_faces(image)
 
-                if len(captured_encodings) == 0:
-                    st.warning("⚠️ No face detected in the captured photo. Please try again.")
-                else:
-                    detected_student_id = None
-                    for captured_encoding in captured_encodings:
-                        matches = face_recognition.compare_faces(known_face_encodings, captured_encoding)
-                        face_distances = face_recognition.face_distance(known_face_encodings, captured_encoding)
-                        
-                        if len(face_distances) > 0:
-                            best_match_index = np.argmin(face_distances)
-                            if matches[best_match_index]:
-                                detected_student_id = known_face_ids[best_match_index]
-                                break
-
-                    if detected_student_id:
-                        student_info = filtered_students[filtered_students["Student ID"].astype(str).str.strip() == detected_student_id]
-                        student_name = student_info.iloc[0]["Name"] if not student_info.empty else "Unknown"
-
-                        st.success(f"✅ Match Found! Student ID: {detected_student_id} | Name: {student_name}")
-
-                        # ৩. গুগল শিটে এন্ট্রি সেভ করা
+                if face_found:
+                    st.success(f"✅ Live Face Detected for Student: {student_name}!")
+                    
+                    if st.button("Confirm & Save Attendance"):
                         df_attendance = load_attendance()
 
                         if not df_attendance.empty and "Date" in df_attendance.columns:
@@ -241,13 +215,11 @@ if menu == "Mark Attendance":
                         else:
                             rows_to_save = [["Date", "Course", "Student ID", "Name", "Status"]]
 
-                        # সিলেক্ট করা ক্লাসের সকল স্টুডেন্টের রেকর্ড আপডেট করা
                         for index, row in filtered_students.iterrows():
                             s_id = str(row["Student ID"]).strip()
                             s_name = str(row["Name"]).strip()
-                            status = "Present" if s_id == detected_student_id else "Absent"
+                            status = "Present" if s_id == selected_student_id else "Absent"
 
-                            # যদি একই তারিখ ও কোর্সের রেকর্ড ইতোমধ্যে থেকে থাকে তবে নতুন আপডেট হবে
                             rows_to_save.append(
                                 [
                                     str(att_date),
@@ -261,10 +233,9 @@ if menu == "Mark Attendance":
                         attendance_worksheet.clear()
                         attendance_worksheet.update(rows_to_save)
                         st.balloons()
-                        st.success(f"Attendance recorded! Student ID {detected_student_id} marked as Present for {selected_course} on {att_date}.")
-
-                    else:
-                        st.error("❌ Face did not match any registered student in this academic year.")
+                        st.success(f"Attendance recorded! Student ID {selected_student_id} marked as Present.")
+                else:
+                    st.error("❌ No face detected in the photo. Please look at the camera properly.")
 
 # -------------------------------------------------------------
 # 2. REGISTER STUDENT
@@ -277,27 +248,7 @@ elif menu == "Register Student":
         name = st.text_input("Full Name")
         department = st.selectbox(
             "Session",
-            [
-                "2021-22",
-                "2022-23",
-                "2023-24",
-                "2024-25",
-                "2025-26",
-                "2026-27",
-                "2027-28",
-                "2028-29",
-                "2029-30",
-                "2030-31",
-                "2031-32",
-                "2032-33",
-                "2033-34",
-                "2034-35",
-                "2035-36",
-                "2036-37",
-                "2037-38",
-                "2038-39",
-                "2039-40",
-            ],
+            [f"20{i:02d}-{i+1:02d}" for i in range(21, 40)]
         )
         academic_year = st.selectbox(
             "Academic Year",
@@ -314,8 +265,7 @@ elif menu == "Register Student":
                 if (
                     not df_students.empty
                     and "Student ID" in df_students.columns
-                    and str(student_id)
-                    in df_students["Student ID"].astype(str).values
+                    and str(student_id) in df_students["Student ID"].astype(str).values
                 ):
                     st.error(f"Student ID '{student_id}' already exists!")
                 else:
@@ -327,7 +277,7 @@ elif menu == "Register Student":
                     )
 
 # -------------------------------------------------------------
-# 3. VIEW RECORDS & ANALYTICS
+# 3. VIEW RECORDS
 # -------------------------------------------------------------
 elif menu == "View Records":
     st.header("Attendance Records & Reports")
@@ -344,32 +294,19 @@ elif menu == "View Records":
             academic_years = ["All Years"]
             if not df_students.empty and "Academic Year" in df_students.columns:
                 academic_years += df_students["Academic Year"].dropna().unique().tolist()
-            
-            selected_year = st.selectbox(
-                "Filter by Academic Year", academic_years, key="view_year"
-            )
+            selected_year = st.selectbox("Filter by Academic Year", academic_years, key="view_year")
 
         with filter_col2:
             unique_dates = df_attendance["Date"].unique().tolist()
-            selected_date = st.selectbox(
-                "Filter by Date", ["All Dates"] + unique_dates, key="view_date"
-            )
+            selected_date = st.selectbox("Filter by Date", ["All Dates"] + unique_dates, key="view_date")
 
         with filter_col3:
-            sort_by = st.selectbox(
-                "Sort Records by:",
-                ["Date (Newest First)", "Date (Oldest First)", "Student ID"],
-                key="view_sort"
-            )
+            sort_by = st.selectbox("Sort Records by:", ["Date (Newest First)", "Date (Oldest First)", "Student ID"], key="view_sort")
 
         filtered_df = df_attendance.copy()
         if not df_students.empty and "Academic Year" in df_students.columns:
             if "Academic Year" not in filtered_df.columns:
-                filtered_df = filtered_df.merge(
-                    df_students[["Student ID", "Academic Year"]],
-                    on="Student ID",
-                    how="left"
-                )
+                filtered_df = filtered_df.merge(df_students[["Student ID", "Academic Year"]], on="Student ID", how="left")
 
         if selected_year != "All Years" and "Academic Year" in filtered_df.columns:
             filtered_df = filtered_df[filtered_df["Academic Year"] == selected_year]
@@ -377,28 +314,8 @@ elif menu == "View Records":
         if selected_date != "All Dates":
             filtered_df = filtered_df[filtered_df["Date"] == selected_date]
 
-        if "Date" in filtered_df.columns:
-            try:
-                filtered_df["_temp_date"] = pd.to_datetime(filtered_df["Date"])
-                if sort_by == "Date (Newest First)":
-                    filtered_df = filtered_df.sort_values(by="_temp_date", ascending=False)
-                elif sort_by == "Date (Oldest First)":
-                    filtered_df = filtered_df.sort_values(by="_temp_date", ascending=True)
-                filtered_df = filtered_df.drop(columns=["_temp_date"])
-            except Exception:
-                pass
-
-        if sort_by == "Student ID" and "Student ID" in filtered_df.columns:
-            try:
-                filtered_df["_temp_id"] = pd.to_numeric(filtered_df["Student ID"])
-                filtered_df = filtered_df.sort_values(by="_temp_id", ascending=True).drop(columns=["_temp_id"])
-            except Exception:
-                filtered_df = filtered_df.sort_values(by="Student ID", ascending=True)
-
         total_records = len(filtered_df)
-        present_count = len(
-            filtered_df[filtered_df["Status"].astype(str).str.lower() == "present"]
-        )
+        present_count = len(filtered_df[filtered_df["Status"].astype(str).str.lower() == "present"])
         absent_count = total_records - present_count
 
         st.markdown("---")
@@ -426,17 +343,12 @@ elif menu == "Manage Students":
     df_students = load_students()
 
     if df_students.empty or "Student ID" not in df_students.columns:
-        st.info(
-            "No students registered yet or missing 'Student ID' column header in Google Sheets."
-        )
+        st.info("No students registered yet.")
     else:
         st.dataframe(df_students, use_container_width=True)
 
         st.subheader("Delete a Student")
-        del_id = st.selectbox(
-            "Select Student ID to remove",
-            df_students["Student ID"].astype(str).values,
-        )
+        del_id = st.selectbox("Select Student ID to remove", df_students["Student ID"].astype(str).values)
 
         if st.button("Delete Student"):
             cell = students_worksheet.find(str(del_id))
@@ -444,8 +356,6 @@ elif menu == "Manage Students":
                 students_worksheet.delete_rows(cell.row)
                 st.success(f"Student ID {del_id} removed from Google Sheets!")
                 st.rerun()
-            else:
-                st.error("Student ID not found in sheet.")
 
 # -------------------------------------------------------------
 # 5. STUDENT PERCENTAGE CHECKER
@@ -459,25 +369,17 @@ elif menu == "Student Percentage Checker":
     if df_students.empty:
         st.warning("No student records found in 'Students' sheet!")
     else:
-        input_student_id = st.text_input(
-            "Enter Your Student ID",
-            value="",
-            placeholder="Roll",
-            key="pct_input_id"
-        ).strip()
+        input_student_id = st.text_input("Enter Your Student ID", value="", placeholder="Roll", key="pct_input_id").strip()
 
         if not input_student_id:
             st.info("Please enter your Student ID above to view your attendance progress.")
         else:
-            matched_student = df_students[
-                df_students["Student ID"].astype(str).str.strip() == input_student_id
-            ]
+            matched_student = df_students[df_students["Student ID"].astype(str).str.strip() == input_student_id]
 
             if matched_student.empty:
                 st.error(f"No registered student found with ID '{input_student_id}'.")
             else:
                 student_name = matched_student.iloc[0]["Name"]
-
                 filtered_att = df_attendance.copy()
 
                 if not filtered_att.empty and "Student ID" in filtered_att.columns:
@@ -494,42 +396,13 @@ elif menu == "Student Percentage Checker":
                 percentage = round((p_count / total_recorded) * 100, 2) if total_recorded > 0 else 0.0
 
                 st.markdown(f"### Progress Summary for: **{student_name}** (ID: {input_student_id})")
-                
-                summary_df = pd.DataFrame([{
-                    "Student ID": input_student_id,
-                    "Name": student_name,
-                    "Total Classes Recorded": total_recorded,
-                    "Present": p_count,
-                    "Absent": a_count,
-                    "Attendance Percentage (%)": percentage
-                }])
-                
-                st.dataframe(summary_df, use_container_width=True)
-
-                st.markdown("---")
                 st.metric(label="Attendance Percentage", value=f"{percentage}%")
                 st.progress(float(percentage) / 100)
                 st.write(f"**Total Classes:** {total_recorded} | **Present:** {p_count} | **Absent:** {a_count}")
 
                 st.markdown("---")
-                st.subheader(" Detailed Date-wise Attendance Logs")
-
-                if st_att.empty:
-                    st.info("No detailed class records found for this student.")
+                st.subheader("Detailed Date-wise Attendance Logs")
+                if not st_att.empty:
+                    st.dataframe(st_att, use_container_width=True)
                 else:
-                    display_cols = [col for col in ["Date", "Course", "Status"] if col in st_att.columns]
-                    
-                    if display_cols:
-                        detailed_df = st_att[display_cols].copy()
-                        
-                        if "Date" in detailed_df.columns:
-                            try:
-                                detailed_df["Date"] = pd.to_datetime(detailed_df["Date"])
-                                detailed_df = detailed_df.sort_values(by="Date", ascending=False)
-                                detailed_df["Date"] = detailed_df["Date"].dt.strftime('%Y-%m-%d')
-                            except Exception:
-                                pass
-                        
-                        st.dataframe(detailed_df, use_container_width=True)
-                    else:
-                        st.dataframe(st_att, use_container_width=True)
+                    st.info("No records found.")
