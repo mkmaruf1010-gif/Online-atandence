@@ -1,8 +1,8 @@
 streamlit
-streamlit-camera-input-live
 gspread
 google-auth
 pandas
-face-recognition
+pillow
 opencv-python-headless
-Pillow
+dlib-bin
+face-recognition
