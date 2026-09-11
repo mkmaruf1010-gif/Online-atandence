@@ -3,10 +3,12 @@ import urllib.parse
 import gspread
 from google.oauth2.service_account import Credentials
 import pandas as pd
-import requests
 import streamlit as st
+from streamlit.web.server.websocket_headers import _get_websocket_headers
 
-# Page Configuration
+# -------------------------------------------------------------
+# PAGE CONFIGURATION
+# -------------------------------------------------------------
 st.set_page_config(
     page_title="OASIS - Attendance System",
     layout="wide",
@@ -59,16 +61,15 @@ def load_attendance():
     return df
 
 
-# -------------------------------------------------------------
-# UTILITY FUNCTION: GET CLIENT IP ADDRESS
-# -------------------------------------------------------------
-def get_user_ip():
+def get_real_client_ip():
+    """Extract real client IP from Streamlit websocket headers"""
     try:
-        response = requests.get("https://api.ipify.org?format=json", timeout=5)
-        if response.status_code == 200:
-            return response.json().get("ip")
+        headers = _get_websocket_headers()
+        if headers and "X-Forwarded-For" in headers:
+            ip = headers["X-Forwarded-For"].split(",")[0].strip()
+            return ip
     except Exception:
-        return None
+        pass
     return None
 
 
@@ -81,31 +82,30 @@ url_date = query_params.get("date", None)
 url_passcode = query_params.get("pass", None)
 
 # -------------------------------------------------------------
-# 1. STUDENT PORTAL (When opened via Generated Session Link)
+# 1. STUDENT PORTAL (Dynamic URL + Subnet IP Verification)
 # -------------------------------------------------------------
 if url_course and url_date and url_passcode:
     st.title("🎓 OASIS - Online Student Attendance Portal")
     st.markdown("---")
 
-    # 🔴 আপনার ডিপার্টমেন্ট / কলেজের ওয়াইফাই এর পাবলিক IP এখানে পরিবর্তন করুন
-    ALLOWED_DEPARTMENT_IP = (
-        "34.127.88.74" # উদাহরণ হিসেবে দেওয়া, আপনার অরিজিনাল IP দিন
-    )
+    # 🔴 আপনার ডিপার্টমেন্ট ওয়াইফাই এর Subnet Prefix (আইপির প্রথম ৩ অংশ)
+    # যেমন: "34.127.88." দিলে 34.127.88.1 থেকে 34.127.88.255 সবই গ্রহণযোগ্য হবে
+    ALLOWED_SUBNET_PREFIX = "34.127.88."
 
-    user_ip = get_user_ip()
+    client_ip = get_real_client_ip()
 
-    # WIFI IP VALIDATION
-    if user_ip != ALLOWED_DEPARTMENT_IP:
+    # Subnet IP Check
+    if not client_ip or not client_ip.startswith(ALLOWED_SUBNET_PREFIX):
         st.error("🚫 Access Denied!")
         st.warning(
-            f"আপনি ডিপার্টমেন্টের ওয়াইফাই নেটওয়ার্কে কানেক্টেড নন। আপনার বর্তমান IP: {user_ip}"
+            f"আপনি ডিপার্টমেন্টের ওয়াইফাই নেটওয়ার্কে কানেক্টেড নন। আপনার বর্তমান IP: {client_ip if client_ip else 'Unknown'}"
         )
         st.info(
-            "💡 অ্যাটেনডেন্স দিতে অনুগ্রহ করে Geography & Environment ডিপার্টমেন্টের ওয়াইফাই কানেক্ট করুন এবং পেজটি রিফ্রেশ করুন।"
+            "💡 অনুগ্রহ করে Geography & Environment ডিপার্টমেন্টের ওয়াইফাই কানেক্ট করুন এবং পেজটি রিফ্রেশ করুন।"
         )
-        st.stop()  # প্রক্সি রোধ করতে এখানেই কোড ব্লক করা হবে
+        st.stop()
 
-    # ওয়াইফাই আইপি ম্যাচ করলে নিচের অংশ কার্যকর হবে
+    # WiFi IP Match করলে নিচের ফর্ম ওপেন হবে
     st.subheader("📌 Class Details")
     st.info(f"**Course:** {url_course}\n\n**Date:** {url_date}")
 
@@ -146,7 +146,6 @@ if url_course and url_date and url_passcode:
                     student_name = matched_student.iloc[0]["Name"]
                     df_attendance = load_attendance()
 
-                    # একই কোর্সে একই দিনে ডুপ্লিকেট সাবমিশন রোধ করা
                     if (
                         not df_attendance.empty
                         and "Student ID" in df_attendance.columns
@@ -173,7 +172,6 @@ if url_course and url_date and url_passcode:
                             )
                             st.stop()
 
-                    # গুগল শিটে অ্যাটেনডেন্স তথ্য সেভ করা
                     attendance_worksheet.append_row(
                         [
                             str(url_date),
@@ -189,7 +187,7 @@ if url_course and url_date and url_passcode:
                     )
 
 # -------------------------------------------------------------
-# MAIN APP NAVIGATION (Teacher / Admin Panel)
+# MAIN APP NAVIGATION (Admin / Teacher Dashboard)
 # -------------------------------------------------------------
 else:
     st.title("OASIS")
@@ -206,7 +204,6 @@ else:
         ],
     )
 
-    # ADMIN PANEL PASSWORD PROTECTION
     protected_pages = [
         "Generate Session Link",
         "Register Student",
@@ -242,7 +239,7 @@ else:
                 st.rerun()
 
     # -------------------------------------------------------------
-    # 1. GENERATE SESSION LINK (TEACHER PANEL)
+    # 1. GENERATE SESSION LINK
     # -------------------------------------------------------------
     if menu == "Generate Session Link":
         st.header("🔗 Generate Class Attendance Link")
@@ -297,7 +294,6 @@ else:
             selected_course = st.selectbox("Select Course", available_courses)
             att_date = st.date_input("Select Session Date", value=date.today())
 
-            # টিচারের সিলেক্ট করা সিক্রেট পাসকোড
             class_passcode = st.text_input(
                 "Set Temporary Class Passcode for Students", value="1234"
             )
@@ -307,14 +303,13 @@ else:
                 encoded_course = urllib.parse.quote(selected_course)
                 encoded_pass = urllib.parse.quote(class_passcode)
 
-                # ডায়নামিক লিঙ্ক জেনারেট
                 generated_url = f"{base_url}?course={encoded_course}&date={att_date}&pass={encoded_pass}"
 
                 st.success("✅ Class Session Link Successfully Generated!")
                 st.markdown("### Copy & Share this Link with Students:")
                 st.code(generated_url, language="markdown")
                 st.info(
-                    "💡 **How it works:** Share this link in the classroom group. Connected students will click the link, enter their Student ID & Passcode to mark their presence."
+                    "💡 **How it works:** Share this link in the classroom group. Students connected to Department WiFi can enter their Student ID & Passcode to mark attendance."
                 )
 
     # -------------------------------------------------------------
@@ -351,9 +346,7 @@ else:
                         students_worksheet.append_row(
                             [str(student_id), name, department, academic_year]
                         )
-                        st.success(
-                            f"Student {name} (ID: {student_id}) added successfully!"
-                        )
+                        st.success(f"Student {name} (ID: {student_id}) added!")
 
     # -------------------------------------------------------------
     # 3. VIEW RECORDS
@@ -449,9 +442,7 @@ else:
             ).strip()
 
             if not input_student_id:
-                st.info(
-                    "Please enter your Student ID above to view progress."
-                )
+                st.info("Please enter your Student ID above to view progress.")
             else:
                 matched_student = df_students[
                     df_students["Student ID"].astype(str).str.strip()
@@ -459,9 +450,7 @@ else:
                 ]
 
                 if matched_student.empty:
-                    st.error(
-                        f"No student found with ID '{input_student_id}'."
-                    )
+                    st.error(f"No student found with ID '{input_student_id}'.")
                 else:
                     student_name = matched_student.iloc[0]["Name"]
                     filtered_att = df_attendance.copy()
