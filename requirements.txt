@@ -3,3 +3,5 @@ gspread
 google-auth
 pandas
 requests
+qrcode
+pillow
