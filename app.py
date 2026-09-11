@@ -100,7 +100,7 @@ if url_course and url_date and url_passcode:
     st.markdown("---")
 
     # 🔴 ডিপার্টমেন্টের ওয়াইফাই Subnet Prefix List (Tuple)
-    ALLOWED_SUBNET_PREFIX = ("103.126.60.", "10.12.")
+    ALLOWED_SUBNET_PREFIX = "103.126.60."
 
     client_ip = get_real_client_ip()
 
