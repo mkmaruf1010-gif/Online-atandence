@@ -94,7 +94,7 @@ if url_course and url_date and url_passcode:
     st.markdown("---")
 
     # 🔴 আপনার ডিপার্টমেন্ট / কলেজের ওয়াইফাই এর Subnet Prefix (যেমন: "34.127.88.")
-    ALLOWED_SUBNET_PREFIX = "34.127.88."
+    ALLOWED_SUBNET_PREFIX = ["103.126.60", ""10.12."]
 
     client_ip = get_real_client_ip()
 
