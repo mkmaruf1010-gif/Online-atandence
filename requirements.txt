@@ -2,5 +2,3 @@ streamlit
 gspread
 google-auth
 pandas
-pillow
-opencv-python-headless
