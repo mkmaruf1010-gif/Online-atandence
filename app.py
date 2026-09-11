@@ -3,6 +3,7 @@ import urllib.parse
 import gspread
 from google.oauth2.service_account import Credentials
 import pandas as pd
+import requests
 import streamlit as st
 
 # Page Configuration
@@ -59,6 +60,19 @@ def load_attendance():
 
 
 # -------------------------------------------------------------
+# UTILITY FUNCTION: GET CLIENT IP ADDRESS
+# -------------------------------------------------------------
+def get_user_ip():
+    try:
+        response = requests.get("https://api.ipify.org?format=json", timeout=5)
+        if response.status_code == 200:
+            return response.json().get("ip")
+    except Exception:
+        return None
+    return None
+
+
+# -------------------------------------------------------------
 # CHECK URL PARAMETERS (FOR STUDENT LINK ACCESS)
 # -------------------------------------------------------------
 query_params = st.query_params
@@ -67,64 +81,115 @@ url_date = query_params.get("date", None)
 url_passcode = query_params.get("pass", None)
 
 # -------------------------------------------------------------
-# 1. STUDENT PORTAL (When opened via Generated Link)
+# 1. STUDENT PORTAL (When opened via Generated Session Link)
 # -------------------------------------------------------------
 if url_course and url_date and url_passcode:
     st.title("🎓 OASIS - Online Student Attendance Portal")
     st.markdown("---")
-    
+
+    # 🔴 আপনার ডিপার্টমেন্ট / কলেজের ওয়াইফাই এর পাবলিক IP এখানে পরিবর্তন করুন
+    ALLOWED_DEPARTMENT_IP = (
+        "192.168.0.1"  # উদাহরণ হিসেবে দেওয়া, আপনার অরিজিনাল IP দিন
+    )
+
+    user_ip = get_user_ip()
+
+    # WIFI IP VALIDATION
+    if user_ip != ALLOWED_DEPARTMENT_IP:
+        st.error("🚫 Access Denied!")
+        st.warning(
+            f"আপনি ডিপার্টমেন্টের ওয়াইফাই নেটওয়ার্কে কানেক্টেড নন। আপনার বর্তমান IP: {user_ip}"
+        )
+        st.info(
+            "💡 অ্যাটেনডেন্স দিতে অনুগ্রহ করে Geography & Environment ডিপার্টমেন্টের ওয়াইফাই কানেক্ট করুন এবং পেজটি রিফ্রেশ করুন।"
+        )
+        st.stop()  # প্রক্সি রোধ করতে এখানেই কোড ব্লক করা হবে
+
+    # ওয়াইফাই আইপি ম্যাচ করলে নিচের অংশ কার্যকর হবে
     st.subheader("📌 Class Details")
     st.info(f"**Course:** {url_course}\n\n**Date:** {url_date}")
 
     df_students = load_students()
 
     with st.form("student_attendance_form"):
-        student_id_input = st.text_input("Enter Your Student ID / Roll", placeholder="e.g. 101").strip()
-        entered_passcode = st.text_input("Enter Classroom Passcode", type="password", placeholder="Ask your teacher for passcode").strip()
-        
-        submit_btn = st.form_submit_button("Submit Attendance", use_container_width=True)
+        student_id_input = st.text_input(
+            "Enter Your Student ID / Roll", placeholder="e.g. 101"
+        ).strip()
+        entered_passcode = st.text_input(
+            "Enter Classroom Passcode",
+            type="password",
+            placeholder="Ask your teacher for passcode",
+        ).strip()
+
+        submit_btn = st.form_submit_button(
+            "Submit Attendance", use_container_width=True
+        )
 
         if submit_btn:
             if not student_id_input or not entered_passcode:
                 st.error("Please fill in both Student ID and Classroom Passcode.")
             elif entered_passcode != url_passcode:
-                st.error("❌ Invalid Classroom Passcode! Please ask your course teacher.")
+                st.error(
+                    "❌ Invalid Classroom Passcode! Please ask your course teacher."
+                )
             else:
-                # Check if Student ID exists in Students Sheet
                 matched_student = df_students[
-                    df_students["Student ID"].astype(str).str.strip() == student_id_input
+                    df_students["Student ID"].astype(str).str.strip()
+                    == student_id_input
                 ]
 
                 if matched_student.empty:
-                    st.error(f"❌ Student ID '{student_id_input}' is not registered in the system.")
+                    st.error(
+                        f"❌ Student ID '{student_id_input}' is not registered in the system."
+                    )
                 else:
                     student_name = matched_student.iloc[0]["Name"]
                     df_attendance = load_attendance()
 
-                    # Check for duplicate submission on same date and course
-                    if not df_attendance.empty and "Student ID" in df_attendance.columns:
+                    # একই কোর্সে একই দিনে ডুপ্লিকেট সাবমিশন রোধ করা
+                    if (
+                        not df_attendance.empty
+                        and "Student ID" in df_attendance.columns
+                    ):
                         already_submitted = df_attendance[
-                            (df_attendance["Student ID"].astype(str).str.strip() == student_id_input) &
-                            (df_attendance["Course"].astype(str).str.strip() == url_course) &
-                            (df_attendance["Date"].astype(str).str.strip() == url_date)
+                            (
+                                df_attendance["Student ID"]
+                                .astype(str)
+                                .str.strip()
+                                == student_id_input
+                            )
+                            & (
+                                df_attendance["Course"].astype(str).str.strip()
+                                == url_course
+                            )
+                            & (
+                                df_attendance["Date"].astype(str).str.strip()
+                                == url_date
+                            )
                         ]
                         if not already_submitted.empty:
-                            st.warning(f"⚠️ {student_name} (ID: {student_id_input}), your attendance for today is already recorded!")
+                            st.warning(
+                                f"⚠️ {student_name} (ID: {student_id_input}), your attendance for today is already recorded!"
+                            )
                             st.stop()
 
-                    # Save record to Google Sheet
-                    attendance_worksheet.append_row([
-                        str(url_date),
-                        str(url_course),
-                        str(student_id_input),
-                        str(student_name),
-                        "Present"
-                    ])
+                    # গুগল শিটে অ্যাটেনডেন্স তথ্য সেভ করা
+                    attendance_worksheet.append_row(
+                        [
+                            str(url_date),
+                            str(url_course),
+                            str(student_id_input),
+                            str(student_name),
+                            "Present",
+                        ]
+                    )
                     st.balloons()
-                    st.success(f"✅ Attendance Successfully Marked for **{student_name}** ({student_id_input})!")
+                    st.success(
+                        f"✅ Attendance Successfully Marked for **{student_name}** ({student_id_input})!"
+                    )
 
 # -------------------------------------------------------------
-# MAIN APP NAVIGATION (For Admin / Teachers / General View)
+# MAIN APP NAVIGATION (Teacher / Admin Panel)
 # -------------------------------------------------------------
 else:
     st.title("OASIS")
@@ -141,8 +206,13 @@ else:
         ],
     )
 
-    # PASSWORD PROTECTION CHECK FOR ADMIN PAGES
-    protected_pages = ["Generate Session Link", "Register Student", "View Records", "Manage Students"]
+    # ADMIN PANEL PASSWORD PROTECTION
+    protected_pages = [
+        "Generate Session Link",
+        "Register Student",
+        "View Records",
+        "Manage Students",
+    ]
 
     if menu in protected_pages:
         if "authenticated" not in st.session_state:
@@ -183,7 +253,9 @@ else:
             st.warning("No students found in Google Sheets.")
         else:
             academic_years = df_students["Academic Year"].unique().tolist()
-            selected_year = st.selectbox("Select Academic Year", academic_years)
+            selected_year = st.selectbox(
+                "Select Academic Year", academic_years
+            )
 
             year_courses = {
                 "1st Year": [
@@ -219,25 +291,31 @@ else:
                 ],
             }
 
-            available_courses = year_courses.get(selected_year, ["General Course"])
+            available_courses = year_courses.get(
+                selected_year, ["General Course"]
+            )
             selected_course = st.selectbox("Select Course", available_courses)
             att_date = st.date_input("Select Session Date", value=date.today())
-            
-            # ক্লাসের জন্য পাসকোড দেওয়া
-            class_passcode = st.text_input("Set Temporary Class Passcode for Students", value="1234")
+
+            # টিচারের সিলেক্ট করা সিক্রেট পাসকোড
+            class_passcode = st.text_input(
+                "Set Temporary Class Passcode for Students", value="1234"
+            )
 
             if st.button("Generate Link"):
                 base_url = "https://geoenvgbcattendence.streamlit.app/"
                 encoded_course = urllib.parse.quote(selected_course)
                 encoded_pass = urllib.parse.quote(class_passcode)
-                
-                # Dynamic URL Generation
+
+                # ডায়নামিক লিঙ্ক জেনারেট
                 generated_url = f"{base_url}?course={encoded_course}&date={att_date}&pass={encoded_pass}"
 
                 st.success("✅ Class Session Link Successfully Generated!")
                 st.markdown("### Copy & Share this Link with Students:")
                 st.code(generated_url, language="markdown")
-                st.info("💡 **How it works:** Share this link in the classroom group. Students will click the link, enter their Student ID & Passcode to mark their presence automatically.")
+                st.info(
+                    "💡 **How it works:** Share this link in the classroom group. Connected students will click the link, enter their Student ID & Passcode to mark their presence."
+                )
 
     # -------------------------------------------------------------
     # 2. REGISTER STUDENT
@@ -248,8 +326,13 @@ else:
         with st.form("student_form"):
             student_id = st.text_input("Student ID")
             name = st.text_input("Full Name")
-            department = st.selectbox("Session", [f"20{i:02d}-{i+1:02d}" for i in range(21, 40)])
-            academic_year = st.selectbox("Academic Year", ["1st Year", "2nd Year", "3rd Year", "4th Year"])
+            department = st.selectbox(
+                "Session", [f"20{i:02d}-{i+1:02d}" for i in range(21, 40)]
+            )
+            academic_year = st.selectbox(
+                "Academic Year",
+                ["1st Year", "2nd Year", "3rd Year", "4th Year"],
+            )
 
             submit_student = st.form_submit_button("Add Student")
 
@@ -258,11 +341,19 @@ else:
                     st.error("Please fill in both Student ID and Name.")
                 else:
                     df_students = load_students()
-                    if not df_students.empty and str(student_id) in df_students["Student ID"].astype(str).values:
+                    if (
+                        not df_students.empty
+                        and str(student_id)
+                        in df_students["Student ID"].astype(str).values
+                    ):
                         st.error(f"Student ID '{student_id}' already exists!")
                     else:
-                        students_worksheet.append_row([str(student_id), name, department, academic_year])
-                        st.success(f"Student {name} (ID: {student_id}) added!")
+                        students_worksheet.append_row(
+                            [str(student_id), name, department, academic_year]
+                        )
+                        st.success(
+                            f"Student {name} (ID: {student_id}) added successfully!"
+                        )
 
     # -------------------------------------------------------------
     # 3. VIEW RECORDS
@@ -271,7 +362,6 @@ else:
         st.header("Attendance Records & Reports")
 
         df_attendance = load_attendance()
-        df_students = load_students()
 
         if df_attendance.empty or "Date" not in df_attendance.columns:
             st.info("No attendance records found yet.")
@@ -280,19 +370,31 @@ else:
 
             with filter_col1:
                 unique_dates = df_attendance["Date"].unique().tolist()
-                selected_date = st.selectbox("Filter by Date", ["All Dates"] + unique_dates)
+                selected_date = st.selectbox(
+                    "Filter by Date", ["All Dates"] + unique_dates
+                )
 
             with filter_col2:
-                courses = df_attendance["Course"].unique().tolist() if "Course" in df_attendance.columns else []
-                selected_course_filter = st.selectbox("Filter by Course", ["All Courses"] + courses)
+                courses = (
+                    df_attendance["Course"].unique().tolist()
+                    if "Course" in df_attendance.columns
+                    else []
+                )
+                selected_course_filter = st.selectbox(
+                    "Filter by Course", ["All Courses"] + courses
+                )
 
             filtered_df = df_attendance.copy()
 
             if selected_date != "All Dates":
-                filtered_df = filtered_df[filtered_df["Date"] == selected_date]
+                filtered_df = filtered_df[
+                    filtered_df["Date"] == selected_date
+                ]
 
             if selected_course_filter != "All Courses":
-                filtered_df = filtered_df[filtered_df["Course"] == selected_course_filter]
+                filtered_df = filtered_df[
+                    filtered_df["Course"] == selected_course_filter
+                ]
 
             st.dataframe(filtered_df, use_container_width=True)
 
@@ -300,7 +402,7 @@ else:
             st.download_button(
                 label="Download Attendance CSV",
                 data=csv,
-                file_name=f"attendance_report.csv",
+                file_name="attendance_report.csv",
                 mime="text/csv",
             )
 
@@ -318,7 +420,10 @@ else:
             st.dataframe(df_students, use_container_width=True)
 
             st.subheader("Delete a Student")
-            del_id = st.selectbox("Select Student ID to remove", df_students["Student ID"].astype(str).values)
+            del_id = st.selectbox(
+                "Select Student ID to remove",
+                df_students["Student ID"].astype(str).values,
+            )
 
             if st.button("Delete Student"):
                 cell = students_worksheet.find(str(del_id))
@@ -339,21 +444,36 @@ else:
         if df_students.empty:
             st.warning("No student records found!")
         else:
-            input_student_id = st.text_input("Enter Your Student ID", value="", placeholder="Roll").strip()
+            input_student_id = st.text_input(
+                "Enter Your Student ID", value="", placeholder="Roll"
+            ).strip()
 
             if not input_student_id:
-                st.info("Please enter your Student ID above to view progress.")
+                st.info(
+                    "Please enter your Student ID above to view progress."
+                )
             else:
-                matched_student = df_students[df_students["Student ID"].astype(str).str.strip() == input_student_id]
+                matched_student = df_students[
+                    df_students["Student ID"].astype(str).str.strip()
+                    == input_student_id
+                ]
 
                 if matched_student.empty:
-                    st.error(f"No student found with ID '{input_student_id}'.")
+                    st.error(
+                        f"No student found with ID '{input_student_id}'."
+                    )
                 else:
                     student_name = matched_student.iloc[0]["Name"]
                     filtered_att = df_attendance.copy()
 
-                    if not filtered_att.empty and "Student ID" in filtered_att.columns:
-                        st_att = filtered_att[filtered_att["Student ID"].astype(str).str.strip() == input_student_id]
+                    if (
+                        not filtered_att.empty
+                        and "Student ID" in filtered_att.columns
+                    ):
+                        st_att = filtered_att[
+                            filtered_att["Student ID"].astype(str).str.strip()
+                            == input_student_id
+                        ]
                         total_recorded = len(st_att)
                         p_count = int((st_att["Status"] == "Present").sum())
                     else:
@@ -361,10 +481,18 @@ else:
                         total_recorded = 0
                         p_count = 0
 
-                    percentage = round((p_count / total_recorded) * 100, 2) if total_recorded > 0 else 0.0
+                    percentage = (
+                        round((p_count / total_recorded) * 100, 2)
+                        if total_recorded > 0
+                        else 0.0
+                    )
 
-                    st.markdown(f"### Progress Summary for: **{student_name}** (ID: {input_student_id})")
-                    st.metric(label="Attendance Percentage", value=f"{percentage}%")
+                    st.markdown(
+                        f"### Progress Summary for: **{student_name}** (ID: {input_student_id})"
+                    )
+                    st.metric(
+                        label="Attendance Percentage", value=f"{percentage}%"
+                    )
                     st.progress(float(percentage) / 100)
 
                     st.markdown("---")
