@@ -3,12 +3,10 @@ import urllib.parse
 import gspread
 from google.oauth2.service_account import Credentials
 import pandas as pd
+import requests
 import streamlit as st
-from streamlit.web.server.websocket_headers import _get_websocket_headers
 
-# -------------------------------------------------------------
-# PAGE CONFIGURATION
-# -------------------------------------------------------------
+# Page Configuration
 st.set_page_config(
     page_title="OASIS - Attendance System",
     layout="wide",
@@ -61,16 +59,23 @@ def load_attendance():
     return df
 
 
+# -------------------------------------------------------------
+# CLIENT IP DETECTION UTILITY (Subnet Check)
+# -------------------------------------------------------------
 def get_real_client_ip():
-    """Extract real client IP from Streamlit websocket headers"""
+    """Streamlit Cloud-এর হেডার থেকে স্টুডেন্টের আসল Client IP নেওয়ার ফাংশন"""
     try:
-        headers = _get_websocket_headers()
+        headers = st.context.headers
         if headers and "X-Forwarded-For" in headers:
-            ip = headers["X-Forwarded-For"].split(",")[0].strip()
-            return ip
+            return headers["X-Forwarded-For"].split(",")[0].strip()
     except Exception:
         pass
-    return None
+
+    try:
+        res = requests.get("https://api.ipify.org?format=json", timeout=3)
+        return res.json().get("ip")
+    except Exception:
+        return None
 
 
 # -------------------------------------------------------------
@@ -82,19 +87,18 @@ url_date = query_params.get("date", None)
 url_passcode = query_params.get("pass", None)
 
 # -------------------------------------------------------------
-# 1. STUDENT PORTAL (Dynamic URL + Subnet IP Verification)
+# 1. STUDENT PORTAL (When opened via Generated Link)
 # -------------------------------------------------------------
 if url_course and url_date and url_passcode:
     st.title("🎓 OASIS - Online Student Attendance Portal")
     st.markdown("---")
 
-    # 🔴 আপনার ডিপার্টমেন্ট ওয়াইফাই এর Subnet Prefix (আইপির প্রথম ৩ অংশ)
-    # যেমন: "34.127.88." দিলে 34.127.88.1 থেকে 34.127.88.255 সবই গ্রহণযোগ্য হবে
-    ALLOWED_SUBNET_PREFIX = "103.126.60."
+    # 🔴 আপনার ডিপার্টমেন্ট / কলেজের ওয়াইফাই এর Subnet Prefix (যেমন: "34.127.88.")
+    ALLOWED_SUBNET_PREFIX = "34.127.88."
 
     client_ip = get_real_client_ip()
 
-    # Subnet IP Check
+    # IP Subnet Validation
     if not client_ip or not client_ip.startswith(ALLOWED_SUBNET_PREFIX):
         st.error("🚫 Access Denied!")
         st.warning(
@@ -105,7 +109,6 @@ if url_course and url_date and url_passcode:
         )
         st.stop()
 
-    # WiFi IP Match করলে নিচের ফর্ম ওপেন হবে
     st.subheader("📌 Class Details")
     st.info(f"**Course:** {url_course}\n\n**Date:** {url_date}")
 
@@ -172,22 +175,20 @@ if url_course and url_date and url_passcode:
                             )
                             st.stop()
 
-                    attendance_worksheet.append_row(
-                        [
-                            str(url_date),
-                            str(url_course),
-                            str(student_id_input),
-                            str(student_name),
-                            "Present",
-                        ]
-                    )
+                    attendance_worksheet.append_row([
+                        str(url_date),
+                        str(url_course),
+                        str(student_id_input),
+                        str(student_name),
+                        "Present",
+                    ])
                     st.balloons()
                     st.success(
                         f"✅ Attendance Successfully Marked for **{student_name}** ({student_id_input})!"
                     )
 
 # -------------------------------------------------------------
-# MAIN APP NAVIGATION (Admin / Teacher Dashboard)
+# MAIN APP NAVIGATION (For Admin / Teachers / General View)
 # -------------------------------------------------------------
 else:
     st.title("OASIS")
@@ -239,7 +240,7 @@ else:
                 st.rerun()
 
     # -------------------------------------------------------------
-    # 1. GENERATE SESSION LINK
+    # 1. GENERATE SESSION LINK (TEACHER PANEL)
     # -------------------------------------------------------------
     if menu == "Generate Session Link":
         st.header("🔗 Generate Class Attendance Link")
@@ -250,9 +251,7 @@ else:
             st.warning("No students found in Google Sheets.")
         else:
             academic_years = df_students["Academic Year"].unique().tolist()
-            selected_year = st.selectbox(
-                "Select Academic Year", academic_years
-            )
+            selected_year = st.selectbox("Select Academic Year", academic_years)
 
             year_courses = {
                 "1st Year": [
@@ -309,7 +308,7 @@ else:
                 st.markdown("### Copy & Share this Link with Students:")
                 st.code(generated_url, language="markdown")
                 st.info(
-                    "💡 **How it works:** Share this link in the classroom group. Students connected to Department WiFi can enter their Student ID & Passcode to mark attendance."
+                    "💡 **How it works:** Share this link in the classroom group. Students will click the link, enter their Student ID & Passcode to mark their presence automatically."
                 )
 
     # -------------------------------------------------------------
@@ -343,10 +342,15 @@ else:
                     ):
                         st.error(f"Student ID '{student_id}' already exists!")
                     else:
-                        students_worksheet.append_row(
-                            [str(student_id), name, department, academic_year]
+                        students_worksheet.append_row([
+                            str(student_id),
+                            name,
+                            department,
+                            academic_year,
+                        ])
+                        st.success(
+                            f"Student {name} (ID: {student_id}) added!"
                         )
-                        st.success(f"Student {name} (ID: {student_id}) added!")
 
     # -------------------------------------------------------------
     # 3. VIEW RECORDS
@@ -355,6 +359,7 @@ else:
         st.header("Attendance Records & Reports")
 
         df_attendance = load_attendance()
+        df_students = load_students()
 
         if df_attendance.empty or "Date" not in df_attendance.columns:
             st.info("No attendance records found yet.")
@@ -479,9 +484,7 @@ else:
                     st.markdown(
                         f"### Progress Summary for: **{student_name}** (ID: {input_student_id})"
                     )
-                    st.metric(
-                        label="Attendance Percentage", value=f"{percentage}%"
-                    )
+                    st.metric(label="Attendance Percentage", value=f"{percentage}%")
                     st.progress(float(percentage) / 100)
 
                     st.markdown("---")
