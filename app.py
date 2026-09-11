@@ -63,20 +63,25 @@ def load_attendance():
 # CLIENT IP DETECTION UTILITY (Subnet Check)
 # -------------------------------------------------------------
 def get_real_client_ip():
-    """Streamlit Cloud-এর হেডার থেকে স্টুডেন্টের আসল Client IP নেওয়ার ফাংশন"""
+    """ক্লায়েন্ট বা প্রক্সি হেডার থেকে অরিজিনাল IP পাওয়ার নির্ভরযোগ্য ফাংশন"""
     try:
         headers = st.context.headers
-        if headers and "X-Forwarded-For" in headers:
-            return headers["X-Forwarded-For"].split(",")[0].strip()
+        if headers:
+            #১. ব্রাউজার প্রাইভেট IP দিলে
+            if "X-Forwarded-For" in headers:
+                ip = headers["X-Forwarded-For"].split(",")[0].strip()
+                return ip
+            elif "X-Real-Ip" in headers:
+                return headers["X-Real-Ip"].strip()
     except Exception:
         pass
 
+    # ২. ব্যাকআপ হিসেবে লোকাল/পাবলিক এপিআই
     try:
         res = requests.get("https://api.ipify.org?format=json", timeout=3)
         return res.json().get("ip")
     except Exception:
         return None
-
 
 # -------------------------------------------------------------
 # CHECK URL PARAMETERS (FOR STUDENT LINK ACCESS)
@@ -94,7 +99,7 @@ if url_course and url_date and url_passcode:
     st.markdown("---")
 
     # 🔴 আপনার ডিপার্টমেন্ট / কলেজের ওয়াইফাই এর Subnet Prefix (যেমন: "34.127.88.")
-    ALLOWED_SUBNET_PREFIX = ["103.126.60", ""10.12."]
+    ALLOWED_SUBNET_PREFIX = ["103.126.60", "10.12."]
 
     client_ip = get_real_client_ip()
 
