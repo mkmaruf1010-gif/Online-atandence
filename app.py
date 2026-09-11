@@ -1,5 +1,6 @@
 from datetime import date
 import io
+import math
 import urllib.parse
 import gspread
 from google.oauth2.service_account import Credentials
@@ -8,12 +9,40 @@ from PIL import Image
 import qrcode
 import requests
 import streamlit as st
+import streamlit.components.v1 as components
 
-# Page Configuration
+# -------------------------------------------------------------
+# PAGE CONFIGURATION
+# -------------------------------------------------------------
 st.set_page_config(
     page_title="OASIS - Attendance System",
     layout="wide",
 )
+
+# -------------------------------------------------------------
+# DEPARTMENT LOCATION & BOUNDARY SETUP
+# -------------------------------------------------------------
+# Govt. Bangla College - Geography & Environment Dept (Approx Coordinates)
+DEPT_LAT = 23.7806  # আপনার ডিপার্টমেন্টের গুগল ম্যাপস থেকে সঠিক Latitude দিন
+DEPT_LON = 90.3542  # আপনার ডিপার্টমেন্টের গুগল ম্যাপস থেকে সঠিক Longitude দিন
+MAX_DISTANCE_METERS = 50.0  # অনুমোদিত সর্বোচ্চ দূরত্ব (মিটারে)
+
+
+def haversine_distance(lat1, lon1, lat2, lon2):
+    """দুইটি GPS কোঅর্ডিনেটের মধ্যবর্তী দূরত্ব (মিটারে) বের করার ফাংশন"""
+    R = 6371000.0  # পৃথিবীর ব্যাসার্ধ (মিটারে)
+    phi1 = math.radians(lat1)
+    phi2 = math.radians(lat2)
+    delta_phi = math.radians(lat2 - lat1)
+    delta_lambda = math.radians(lon2 - lon1)
+
+    a = (
+        math.sin(delta_phi / 2.0) ** 2
+        + math.cos(phi1) * math.cos(phi2) * math.sin(delta_lambda / 2.0) ** 2
+    )
+    c = 2.0 * math.atan2(math.sqrt(a), math.sqrt(1.0 - a))
+    return R * c
+
 
 # -------------------------------------------------------------
 # GOOGLE SHEETS CONNECTION SETUP
@@ -41,7 +70,7 @@ try:
     attendance_worksheet = sheet.worksheet("Attendance")
 except Exception as e:
     st.error(
-        f"Failed to connect to Google Sheets. Check your secrets configuration and permissions. Error: {e}"
+        f"Failed to connect to Google Sheets. Check your secrets configuration. Error: {e}"
     )
     st.stop()
 
@@ -63,28 +92,6 @@ def load_attendance():
 
 
 # -------------------------------------------------------------
-# CLIENT IP DETECTION UTILITY (Subnet Check)
-# -------------------------------------------------------------
-def get_real_client_ip():
-    """ক্লায়েন্ট বা প্রক্সি হেডার থেকে অরিজিনাল IP পাওয়ার নির্ভরযোগ্য ফাংশন"""
-    try:
-        headers = st.context.headers
-        if headers:
-            if "X-Forwarded-For" in headers:
-                return headers["X-Forwarded-For"].split(",")[0].strip()
-            elif "X-Real-Ip" in headers:
-                return headers["X-Real-Ip"].strip()
-    except Exception:
-        pass
-
-    try:
-        res = requests.get("https://api.ipify.org?format=json", timeout=3)
-        return res.json().get("ip")
-    except Exception:
-        return None
-
-
-# -------------------------------------------------------------
 # CHECK URL PARAMETERS (FOR STUDENT LINK ACCESS)
 # -------------------------------------------------------------
 query_params = st.query_params
@@ -93,28 +100,79 @@ url_date = query_params.get("date", None)
 url_passcode = query_params.get("pass", None)
 
 # -------------------------------------------------------------
-# 1. STUDENT PORTAL (When opened via Generated Link)
+# 1. STUDENT PORTAL (LOCATION BASED VALIDATION)
 # -------------------------------------------------------------
 if url_course and url_date and url_passcode:
     st.title("🎓 OASIS - Online Student Attendance Portal")
     st.markdown("---")
 
-    # 🔴 ডিপার্টমেন্টের ওয়াইফাই Subnet Prefix List (Tuple)
-    ALLOWED_SUBNET_PREFIX = "103.126.60."
+    st.subheader("📍 Geolocation Verification")
 
-    client_ip = get_real_client_ip()
+    # JavaScript integration to capture HTML5 geolocation
+    loc_html = """
+    <script>
+    function sendPosition(position) {
+        const data = {
+            lat: position.coords.latitude,
+            lon: position.coords.longitude,
+            error: null
+        };
+        window.parent.postMessage({type: 'streamlit:setComponentValue', value: data}, '*');
+    }
+    function sendError(error) {
+        const data = {
+            lat: null,
+            lon: null,
+            error: error.message
+        };
+        window.parent.postMessage({type: 'streamlit:setComponentValue', value: data}, '*');
+    }
+    if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(sendPosition, sendError, {
+            enableHighAccuracy: true,
+            timeout: 10000,
+            maximumAge: 0
+        });
+    }
+    </script>
+    """
 
-    # IP Subnet Validation
-    if not client_ip or not client_ip.startswith(ALLOWED_SUBNET_PREFIX):
-        st.error("🚫 Access Denied!")
-        st.warning(
-            f"আপনি ডিপার্টমেন্টের ওয়াইফাই নেটওয়ার্কে কানেক্টেড নন। আপনার বর্তমান IP: {client_ip if client_ip else 'Unknown'}"
+    loc_result = components.html(loc_html, height=0)
+
+    # Streamlit geolocation input fallbacks
+    col_lat, col_lon = st.columns(2)
+    with col_lat:
+        user_lat = st.number_input(
+            "Detected Latitude", value=0.0, format="%.6f", key="u_lat"
         )
+    with col_lon:
+        user_lon = st.number_input(
+            "Detected Longitude", value=0.0, format="%.6f", key="u_lon"
+        )
+
+    if user_lat == 0.0 or user_lon == 0.0:
         st.info(
-            "💡 অনুগ্রহ করে Geography & Environment ডিপার্টমেন্টের ওয়াইফাই কানেক্ট করুন এবং পেজটি রিফ্রেশ করুন।"
+            "💡 ব্রাউজারে Location Permission Allow করুন অথবা আপনার ডিভাইসের জিপিএস থেকে প্রাপ্ত Latitude এবং Longitude ইনপুট ঘরে লিখুন।"
         )
         st.stop()
 
+    distance = haversine_distance(DEPT_LAT, DEPT_LON, user_lat, user_lon)
+
+    if distance > MAX_DISTANCE_METERS:
+        st.error("🚫 Access Denied!")
+        st.warning(
+            f"আপনি ডিপার্টমেন্ট সীমানার বাইরে আছেন! আপনার বর্তমান দূরত্ব: {int(distance)} মিটার।"
+        )
+        st.info(
+            f"💡 উপস্থিতি সাবমিট করতে ডিপার্টমেন্টের {int(MAX_DISTANCE_METERS)} মিটারের মধ্যে উপস্থিত থাকুন।"
+        )
+        st.stop()
+    else:
+        st.success(
+            f"📍 Location Verified! আপনি ডিপার্টমেন্ট সীমানার ভেতরে আছেন (দূরত্ব: {int(distance)} মিটার)।"
+        )
+
+    st.markdown("---")
     st.subheader("📌 Class Details")
     st.info(f"**Course:** {url_course}\n\n**Date:** {url_date}")
 
@@ -138,9 +196,7 @@ if url_course and url_date and url_passcode:
             if not student_id_input or not entered_passcode:
                 st.error("Please fill in both Student ID and Classroom Passcode.")
             elif entered_passcode != url_passcode:
-                st.error(
-                    "❌ Invalid Classroom Passcode! Please ask your course teacher."
-                )
+                st.error("❌ Invalid Classroom Passcode!")
             else:
                 matched_student = df_students[
                     df_students["Student ID"].astype(str).str.strip()
@@ -149,7 +205,7 @@ if url_course and url_date and url_passcode:
 
                 if matched_student.empty:
                     st.error(
-                        f"❌ Student ID '{student_id_input}' is not registered in the system."
+                        f"❌ Student ID '{student_id_input}' is not registered."
                     )
                 else:
                     student_name = matched_student.iloc[0]["Name"]
@@ -177,7 +233,7 @@ if url_course and url_date and url_passcode:
                         ]
                         if not already_submitted.empty:
                             st.warning(
-                                f"⚠️ {student_name} (ID: {student_id_input}), your attendance for today is already recorded!"
+                                f"⚠️ {student_name} ({student_id_input}), your attendance is already recorded for this class!"
                             )
                             st.stop()
 
@@ -190,14 +246,14 @@ if url_course and url_date and url_passcode:
                     ])
                     st.balloons()
                     st.success(
-                        f"✅ Attendance Successfully Marked for **{student_name}** ({student_id_input})!"
+                        f"✅ Attendance Marked for **{student_name}** ({student_id_input})!"
                     )
 
 # -------------------------------------------------------------
-# MAIN APP NAVIGATION (For Admin / Teachers / General View)
+# MAIN APP NAVIGATION (ADMIN / TEACHER PANEL)
 # -------------------------------------------------------------
 else:
-    st.title("OASIS")
+    st.title("OASIS - Attendance System")
     st.markdown("---")
 
     menu = st.sidebar.selectbox(
@@ -238,7 +294,7 @@ else:
                     st.success("Access granted!")
                     st.rerun()
                 else:
-                    st.error("Incorrect password. Access denied.")
+                    st.error("Incorrect password.")
             st.stop()
         else:
             if st.sidebar.button("Lock Admin Session"):
@@ -246,7 +302,7 @@ else:
                 st.rerun()
 
     # -------------------------------------------------------------
-    # 1. GENERATE SESSION LINK & QR CODE (TEACHER PANEL)
+    # 1. GENERATE SESSION LINK & QR CODE
     # -------------------------------------------------------------
     if menu == "Generate Session Link":
         st.header("🔗 Generate Class Attendance Link & QR Code")
@@ -300,7 +356,7 @@ else:
             att_date = st.date_input("Select Session Date", value=date.today())
 
             class_passcode = st.text_input(
-                "Set Temporary Class Passcode for Students", value="1234"
+                "Set Temporary Class Passcode", value="1234"
             )
 
             if st.button("Generate Session Link & QR"):
@@ -312,7 +368,6 @@ else:
 
                 st.success("✅ Class Session Link & QR Code Generated!")
 
-                # --- GENERATE QR CODE ---
                 qr = qrcode.QRCode(
                     version=1,
                     error_correction=qrcode.constants.ERROR_CORRECT_L,
@@ -333,9 +388,6 @@ else:
                 with col1:
                     st.markdown("### 🔗 Shareable Link")
                     st.code(generated_url, language="markdown")
-                    st.info(
-                        "💡 **How it works:** Share this link or project the QR code. Students scanning this while on the Department WiFi will be taken to the submission page."
-                    )
 
                 with col2:
                     st.markdown("### 📱 Scan QR Code")
@@ -393,7 +445,6 @@ else:
         st.header("Attendance Records & Reports")
 
         df_attendance = load_attendance()
-        df_students = load_students()
 
         if df_attendance.empty or "Date" not in df_attendance.columns:
             st.info("No attendance records found yet.")
@@ -481,7 +532,7 @@ else:
             ).strip()
 
             if not input_student_id:
-                st.info("Please enter your Student ID above to view progress.")
+                st.info("Please enter your Student ID above.")
             else:
                 matched_student = df_students[
                     df_students["Student ID"].astype(str).str.strip()
@@ -516,13 +567,12 @@ else:
                     )
 
                     st.markdown(
-                        f"### Progress Summary for: **{student_name}** (ID: {input_student_id})"
+                        f"### Summary: **{student_name}** (ID: {input_student_id})"
                     )
                     st.metric(label="Attendance Percentage", value=f"{percentage}%")
                     st.progress(float(percentage) / 100)
 
                     st.markdown("---")
-                    st.subheader("Detailed Logs")
                     if not st_att.empty:
                         st.dataframe(st_att, use_container_width=True)
                     else:
