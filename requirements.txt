@@ -1,4 +1,8 @@
 streamlit
-pandas
+streamlit-camera-input-live
 gspread
 google-auth
+pandas
+face-recognition
+opencv-python-headless
+Pillow
