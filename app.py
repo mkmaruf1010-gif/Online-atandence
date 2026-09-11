@@ -54,11 +54,27 @@ def load_students():
 
 
 def load_attendance():
-    data = attendance_worksheet.get_all_records()
-    df = pd.DataFrame(data)
-    if not df.empty:
-        df.columns = df.columns.str.strip()
-    return df
+    @st.cache_data
+def load_known_faces(student_ids):
+    known_face_encodings = []
+    known_face_ids = []
+
+    for s_id in student_ids:
+        s_id = str(s_id).strip()
+        # jpg, jpeg এবং png ফরম্যাট সাপোর্ট করার জন্য
+        for ext in [".jpg", ".jpeg", ".png"]:
+            image_path = f"known_faces/{s_id}{ext}"
+            if os.path.exists(image_path):
+                try:
+                    student_img = face_recognition.load_image_file(image_path)
+                    encodings = face_recognition.face_encodings(student_img)
+                    if encodings:
+                        known_face_encodings.append(encodings[0])
+                        known_face_ids.append(s_id)
+                        break
+                except Exception:
+                    pass
+    return known_face_encodings, known_face_ids
 
 
 st.title("OASIS")
@@ -181,24 +197,9 @@ if menu == "Mark Attendance":
         st.markdown(f"### Student Face Scanning for {selected_year} - {selected_course}")
         st.info("📷 Turn on camera, capture image, and system will automatically detect the student's face.")
 
-        # ১. জানা শিক্ষার্থী সম্পর্কিত ফেস ডাটাবেজ লোড করা
-        known_face_encodings = []
-        known_face_ids = []
-
-        if not filtered_students.empty:
-            for index, row in filtered_students.iterrows():
-                s_id = str(row["Student ID"]).strip()
-                image_path = f"known_faces/{s_id}.jpg" # PNG ফাইলের ক্ষেত্রে .png দিতে হবে
-                
-                if os.path.exists(image_path):
-                    try:
-                        student_img = face_recognition.load_image_file(image_path)
-                        encodings = face_recognition.face_encodings(student_img)
-                        if encodings:
-                            known_face_encodings.append(encodings[0])
-                            known_face_ids.append(s_id)
-                    except Exception as e:
-                        st.warning(f"Could not process face image for ID: {s_id}")
+       # ১. জানা শিক্ষার্থী সম্পর্কিত ফেস ডাটাবেজ লোড করা (Cached)
+        student_ids_list = filtered_students["Student ID"].tolist()
+        known_face_encodings, known_face_ids = load_known_faces(student_ids_list)
 
         # ২. ক্যামেরা ইনপুট
         img_buffer = st.camera_input("Take a photo to scan face")
