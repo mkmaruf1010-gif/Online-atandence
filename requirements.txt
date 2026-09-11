@@ -5,3 +5,4 @@ pandas
 requests
 qrcode
 pillow
+streamlit-js-eval
