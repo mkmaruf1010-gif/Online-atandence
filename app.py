@@ -20,8 +20,8 @@ st.set_page_config(
 # -------------------------------------------------------------
 # DEPARTMENT LOCATION SETUP (GOVT. BANGLA COLLEGE - GEO)
 # -------------------------------------------------------------
-DEPT_LAT = 90.386524  # আপনার ডিপার্টমেন্টের সঠিক Latitude
-DEPT_LON = 23.826355  # আপনার ডিপার্টমেন্টের সঠিক Longitude
+DEPT_LAT = 23.7806  # আপনার ডিপার্টমেন্টের সঠিক Latitude
+DEPT_LON = 90.3542  # আপনার ডিপার্টমেন্টের সঠিক Longitude
 MAX_DISTANCE_METERS = 50.0  # ব্যাসার্ধ (মিটারে)
 
 
@@ -101,7 +101,6 @@ if url_course and url_date and url_passcode:
     st.title("🎓 OASIS - Online Student Attendance Portal")
     st.markdown("---")
 
-    # অটোমেটিক ব্রাউজার জিপিএস ফেচিং
     loc = get_geolocation()
 
     if not loc:
@@ -115,12 +114,11 @@ if url_course and url_date and url_passcode:
         st.error("🚫 আপনার লোকেশন সিগন্যাল পাওয়া যায়নি। ফোনের জিপিএস চালু করে পেজটি রিফ্রেশ করুন।")
         st.stop()
 
-    # অটোমেটিক দূরত্ব গণনা
     distance = haversine_distance(DEPT_LAT, DEPT_LON, user_lat, user_lon)
 
     if distance > MAX_DISTANCE_METERS:
         st.error("🚫 Access Denied!")
-        st.warning(f"আপনি ডিপার্টমেন্ট সীমানার বাইরে আছেন! ডিপার্টমেন্ট থেকে আপনার বর্তমান দূরত্ব: {int(distance)} মিটার।")
+        st.warning(f"আপনি ডিপার্টমেন্ট সীমানার বাইরে আছেন! আপনার বর্তমান দূরত্ব: {int(distance)} মিটার।")
         st.info(f"💡 উপস্থিতি সাবমিট করতে ডিপার্টমেন্টের {int(MAX_DISTANCE_METERS)} মিটারের মধ্যে থাকতে হবে।")
         st.stop()
 
@@ -158,27 +156,43 @@ if url_course and url_date and url_passcode:
                     st.error(f"❌ Student ID '{student_id_input}' is not registered.")
                 else:
                     student_name = matched_student.iloc[0]["Name"]
-                    df_attendance = load_attendance()
+                    
+                    # শিটের সেল খুঁজে স্ট্যাটাস Present করা
+                    try:
+                        # Date, Course, এবং Student ID দিয়ে সেল খোঁজা
+                        all_records = attendance_worksheet.get_all_records()
+                        row_to_update = None
+                        
+                        for idx, record in enumerate(all_records, start=2): # Header বাদ দিয়ে Row 2 থেকে শুরু
+                            if (str(record.get("Date")).strip() == str(url_date).strip() and
+                                str(record.get("Course")).strip() == str(url_course).strip() and
+                                str(record.get("Student ID")).strip() == str(student_id_input).strip()):
+                                row_to_update = idx
+                                break
+                        
+                        if row_to_update:
+                            # 5th column হলো Status column (Date, Course, Student ID, Name, Status)
+                            current_status = attendance_worksheet.cell(row_to_update, 5).value
+                            if current_status == "Present":
+                                st.warning(f"⚠️ {student_name} ({student_id_input}), your attendance is already marked Present!")
+                            else:
+                                attendance_worksheet.update_cell(row_to_update, 5, "Present")
+                                st.balloons()
+                                st.success(f"✅ Attendance Marked Present for **{student_name}** ({student_id_input})!")
+                        else:
+                            # যদি কোনো কারণে আগে Absent রো তৈরি না হয়ে থাকে, তবে নতুন রো অপশন
+                            attendance_worksheet.append_row([
+                                str(url_date),
+                                str(url_course),
+                                str(student_id_input),
+                                str(student_name),
+                                "Present",
+                            ])
+                            st.balloons()
+                            st.success(f"✅ Attendance Marked Present for **{student_name}** ({student_id_input})!")
 
-                    if not df_attendance.empty and "Student ID" in df_attendance.columns:
-                        already_submitted = df_attendance[
-                            (df_attendance["Student ID"].astype(str).str.strip() == student_id_input)
-                            & (df_attendance["Course"].astype(str).str.strip() == url_course)
-                            & (df_attendance["Date"].astype(str).str.strip() == url_date)
-                        ]
-                        if not already_submitted.empty:
-                            st.warning(f"⚠️ {student_name} ({student_id_input}), your attendance is already recorded!")
-                            st.stop()
-
-                    attendance_worksheet.append_row([
-                        str(url_date),
-                        str(url_course),
-                        str(student_id_input),
-                        str(student_name),
-                        "Present",
-                    ])
-                    st.balloons()
-                    st.success(f"✅ Attendance Marked for **{student_name}** ({student_id_input})!")
+                    except Exception as e:
+                        st.error(f"Error updating attendance: {e}")
 
 # -------------------------------------------------------------
 # MAIN APP NAVIGATION (ADMIN / TEACHER PANEL)
@@ -229,7 +243,7 @@ else:
                 st.rerun()
 
     # -------------------------------------------------------------
-    # 1. GENERATE SESSION LINK & QR CODE
+    # 1. GENERATE SESSION LINK & QR CODE (INITIATES ABSENTEE RECORDS)
     # -------------------------------------------------------------
     if menu == "Generate Session Link":
         st.header("🔗 Generate Class Attendance Link & QR Code")
@@ -283,38 +297,69 @@ else:
             class_passcode = st.text_input("Set Temporary Class Passcode", value="1234")
 
             if st.button("Generate Session Link & QR"):
-                base_url = "https://geoenvgbcattendence.streamlit.app/"
-                encoded_course = urllib.parse.quote(selected_course)
-                encoded_pass = urllib.parse.quote(class_passcode)
+                # ১. সিলেক্ট করা ইয়ারের সব স্টুডেন্ট ফিল্টার
+                target_students = df_students[df_students["Academic Year"] == selected_year]
+                
+                if target_students.empty:
+                    st.error(f"❌ {selected_year}-এ কোনো নিবন্ধিত স্টুডেন্ট পাওয়া যায়নি!")
+                else:
+                    df_attendance = load_attendance()
+                    
+                    # ২. ওই ডেট ও কোর্সে আগে থেকে এন্ট্রি আছে কিনা চেক করা
+                    existing = pd.DataFrame()
+                    if not df_attendance.empty and "Date" in df_attendance.columns:
+                        existing = df_attendance[
+                            (df_attendance["Date"].astype(str) == str(att_date)) & 
+                            (df_attendance["Course"].astype(str) == str(selected_course))
+                        ]
+                    
+                    # ৩. নতুন ক্লাস হলে সব স্টুডেন্টের জন্য Absent এন্ট্রি তৈরি করা
+                    if existing.empty:
+                        new_rows = []
+                        for _, student in target_students.iterrows():
+                            new_rows.append([
+                                str(att_date),
+                                str(selected_course),
+                                str(student["Student ID"]),
+                                str(student["Name"]),
+                                "Absent"  # বাই-ডিফল্ট Absent
+                            ])
+                        
+                        attendance_worksheet.append_rows(new_rows)
+                        st.info(f"📋 {selected_year}-এর {len(target_students)} জন স্টুডেন্টের জন্য 'Absent' রিকর্ড ইনিশিয়ালাইজ করা হয়েছে।")
 
-                generated_url = f"{base_url}?course={encoded_course}&date={att_date}&pass={encoded_pass}"
+                    base_url = "https://geoenvgbcattendence.streamlit.app/"
+                    encoded_course = urllib.parse.quote(selected_course)
+                    encoded_pass = urllib.parse.quote(class_passcode)
 
-                st.success("✅ Class Session Link & QR Code Generated!")
+                    generated_url = f"{base_url}?course={encoded_course}&date={att_date}&pass={encoded_pass}"
 
-                qr = qrcode.QRCode(
-                    version=1,
-                    error_correction=qrcode.constants.ERROR_CORRECT_L,
-                    box_size=10,
-                    border=4,
-                )
-                qr.add_data(generated_url)
-                qr.make(fit=True)
+                    st.success("✅ Class Session Link & QR Code Generated!")
 
-                img = qr.make_image(fill_color="black", back_color="white")
+                    qr = qrcode.QRCode(
+                        version=1,
+                        error_correction=qrcode.constants.ERROR_CORRECT_L,
+                        box_size=10,
+                        border=4,
+                    )
+                    qr.add_data(generated_url)
+                    qr.make(fit=True)
 
-                buf = io.BytesIO()
-                img.save(buf, format="PNG")
-                byte_im = buf.getvalue()
+                    img = qr.make_image(fill_color="black", back_color="white")
 
-                col1, col2 = st.columns([2, 1])
+                    buf = io.BytesIO()
+                    img.save(buf, format="PNG")
+                    byte_im = buf.getvalue()
 
-                with col1:
-                    st.markdown("### 🔗 Shareable Link")
-                    st.code(generated_url, language="markdown")
+                    col1, col2 = st.columns([2, 1])
 
-                with col2:
-                    st.markdown("### 📱 Scan QR Code")
-                    st.image(byte_im, caption="Scan to Mark Attendance", width=250)
+                    with col1:
+                        st.markdown("### 🔗 Shareable Link")
+                        st.code(generated_url, language="markdown")
+
+                    with col2:
+                        st.markdown("### 📱 Scan QR Code")
+                        st.image(byte_im, caption="Scan to Mark Attendance", width=250)
 
     # -------------------------------------------------------------
     # 2. REGISTER STUDENT
@@ -423,7 +468,7 @@ else:
                     st.rerun()
 
     # -------------------------------------------------------------
-    # 5. STUDENT PERCENTAGE CHECKER
+    # 5. STUDENT PERCENTAGE CHECKER (UPDATED WITH PRESENT & ABSENT PERCENTAGES)
     # -------------------------------------------------------------
     elif menu == "Student Percentage Checker":
         st.header("Student Attendance Percentage Checker")
@@ -457,20 +502,36 @@ else:
                         ]
                         total_recorded = len(st_att)
                         p_count = int((st_att["Status"] == "Present").sum())
+                        a_count = int((st_att["Status"] == "Absent").sum())
                     else:
                         st_att = pd.DataFrame()
                         total_recorded = 0
                         p_count = 0
+                        a_count = 0
 
-                    percentage = (
+                    present_percentage = (
                         round((p_count / total_recorded) * 100, 2)
+                        if total_recorded > 0
+                        else 0.0
+                    )
+                    absent_percentage = (
+                        round((a_count / total_recorded) * 100, 2)
                         if total_recorded > 0
                         else 0.0
                     )
 
                     st.markdown(f"### Summary: **{student_name}** (ID: {input_student_id})")
-                    st.metric(label="Attendance Percentage", value=f"{percentage}%")
-                    st.progress(float(percentage) / 100)
+                    
+                    # Present এবং Absent দুইটার পার্সেন্টেজ প্রদর্শন
+                    m_col1, m_col2, m_col3 = st.columns(3)
+                    with m_col1:
+                        st.metric(label="Total Classes Held", value=f"{total_recorded}")
+                    with m_col2:
+                        st.metric(label="Present Percentage", value=f"{present_percentage}%")
+                    with m_col3:
+                        st.metric(label="Absent Percentage", value=f"{absent_percentage}%")
+
+                    st.progress(float(present_percentage) / 100)
 
                     st.markdown("---")
                     if not st_att.empty:
