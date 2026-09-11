@@ -1,8 +1,11 @@
 from datetime import date
+import io
 import urllib.parse
 import gspread
 from google.oauth2.service_account import Credentials
 import pandas as pd
+from PIL import Image
+import qrcode
 import requests
 import streamlit as st
 
@@ -63,25 +66,23 @@ def load_attendance():
 # CLIENT IP DETECTION UTILITY (Subnet Check)
 # -------------------------------------------------------------
 def get_real_client_ip():
-    """ক্লায়েন্ট বা প্রক্সি হেডার থেকে অরিজিনাল IP পাওয়ার নির্ভরযোগ্য ফাংশন"""
+    """ক্লায়েন্ট বা প্রক্সি হেডার থেকে অরিজিনাল IP পাওয়ার নির্ভরযোগ্য ফাংশন"""
     try:
         headers = st.context.headers
         if headers:
-            #১. ব্রাউজার প্রাইভেট IP দিলে
             if "X-Forwarded-For" in headers:
-                ip = headers["X-Forwarded-For"].split(",")[0].strip()
-                return ip
+                return headers["X-Forwarded-For"].split(",")[0].strip()
             elif "X-Real-Ip" in headers:
                 return headers["X-Real-Ip"].strip()
     except Exception:
         pass
 
-    # ২. ব্যাকআপ হিসেবে লোকাল/পাবলিক এপিআই
     try:
         res = requests.get("https://api.ipify.org?format=json", timeout=3)
         return res.json().get("ip")
     except Exception:
         return None
+
 
 # -------------------------------------------------------------
 # CHECK URL PARAMETERS (FOR STUDENT LINK ACCESS)
@@ -98,8 +99,8 @@ if url_course and url_date and url_passcode:
     st.title("🎓 OASIS - Online Student Attendance Portal")
     st.markdown("---")
 
-    # 🔴 আপনার ডিপার্টমেন্ট / কলেজের ওয়াইফাই এর Subnet Prefix (যেমন: "34.127.88.")
-    ALLOWED_SUBNET_PREFIX = ["103.126.60", "10.12."]
+    # 🔴 ডিপার্টমেন্টের ওয়াইফাই Subnet Prefix List (Tuple)
+    ALLOWED_SUBNET_PREFIX = ("103.126.60.", "10.12.")
 
     client_ip = get_real_client_ip()
 
@@ -107,10 +108,10 @@ if url_course and url_date and url_passcode:
     if not client_ip or not client_ip.startswith(ALLOWED_SUBNET_PREFIX):
         st.error("🚫 Access Denied!")
         st.warning(
-            f"আপনি ডিপার্টমেন্টের ওয়াইফাই নেটওয়ার্কে কানেক্টেড নন। আপনার বর্তমান IP: {client_ip if client_ip else 'Unknown'}"
+            f"আপনি ডিপার্টমেন্টের ওয়াইফাই নেটওয়ার্কে কানেক্টেড নন। আপনার বর্তমান IP: {client_ip if client_ip else 'Unknown'}"
         )
         st.info(
-            "💡 অনুগ্রহ করে Geography & Environment ডিপার্টমেন্টের ওয়াইফাই কানেক্ট করুন এবং পেজটি রিফ্রেশ করুন।"
+            "💡 অনুগ্রহ করে Geography & Environment ডিপার্টমেন্টের ওয়াইফাই কানেক্ট করুন এবং পেজটি রিফ্রেশ করুন।"
         )
         st.stop()
 
@@ -245,10 +246,10 @@ else:
                 st.rerun()
 
     # -------------------------------------------------------------
-    # 1. GENERATE SESSION LINK (TEACHER PANEL)
+    # 1. GENERATE SESSION LINK & QR CODE (TEACHER PANEL)
     # -------------------------------------------------------------
     if menu == "Generate Session Link":
-        st.header("🔗 Generate Class Attendance Link")
+        st.header("🔗 Generate Class Attendance Link & QR Code")
 
         df_students = load_students()
 
@@ -302,19 +303,47 @@ else:
                 "Set Temporary Class Passcode for Students", value="1234"
             )
 
-            if st.button("Generate Link"):
+            if st.button("Generate Session Link & QR"):
                 base_url = "https://geoenvgbcattendence.streamlit.app/"
                 encoded_course = urllib.parse.quote(selected_course)
                 encoded_pass = urllib.parse.quote(class_passcode)
 
                 generated_url = f"{base_url}?course={encoded_course}&date={att_date}&pass={encoded_pass}"
 
-                st.success("✅ Class Session Link Successfully Generated!")
-                st.markdown("### Copy & Share this Link with Students:")
-                st.code(generated_url, language="markdown")
-                st.info(
-                    "💡 **How it works:** Share this link in the classroom group. Students will click the link, enter their Student ID & Passcode to mark their presence automatically."
+                st.success("✅ Class Session Link & QR Code Generated!")
+
+                # --- GENERATE QR CODE ---
+                qr = qrcode.QRCode(
+                    version=1,
+                    error_correction=qrcode.constants.ERROR_CORRECT_L,
+                    box_size=10,
+                    border=4,
                 )
+                qr.add_data(generated_url)
+                qr.make(fit=True)
+
+                img = qr.make_image(fill_color="black", back_color="white")
+
+                buf = io.BytesIO()
+                img.save(buf, format="PNG")
+                byte_im = buf.getvalue()
+
+                col1, col2 = st.columns([2, 1])
+
+                with col1:
+                    st.markdown("### 🔗 Shareable Link")
+                    st.code(generated_url, language="markdown")
+                    st.info(
+                        "💡 **How it works:** Share this link or project the QR code. Students scanning this while on the Department WiFi will be taken to the submission page."
+                    )
+
+                with col2:
+                    st.markdown("### 📱 Scan QR Code")
+                    st.image(
+                        byte_im,
+                        caption="Scan to Mark Attendance",
+                        width=250,
+                    )
 
     # -------------------------------------------------------------
     # 2. REGISTER STUDENT
