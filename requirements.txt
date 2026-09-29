@@ -6,3 +6,4 @@ requests
 qrcode
 pillow
 streamlit-js-eval
+openpyxl
