@@ -392,95 +392,126 @@ elif menu == "Register Student":
             except Exception as e:
                 st.error(f"Error processing file: {e}")
 # -------------------------------------------------------------
-# 3. VIEW RECORDS & ANALYTICS
+# ATTENDANCE RECORDS & REPORTS (DAILY SUMMARY BY STUDENT)
 # -------------------------------------------------------------
-elif menu == "View Records":
+elif menu == "Attendance Records":
     st.header("Attendance Records & Reports")
 
     df_attendance = load_attendance()
     df_students = load_students()
 
-    if df_attendance.empty or "Date" not in df_attendance.columns:
-        st.info("No attendance records found yet.")
+    if df_attendance.empty or "Student ID" not in df_attendance.columns:
+        st.info("No attendance records found.")
     else:
-        filter_col1, filter_col2, filter_col3 = st.columns(3)
+        # ডাটা টাইপ সঠিক করা
+        df_attendance["Student ID"] = df_attendance["Student ID"].astype(str).str.strip()
+        
+        # ১. ফিল্টার অপশন
+        col_yr, col_date, col_sort = st.columns(3)
 
-        with filter_col1:
-            academic_years = ["All Years"]
-            if not df_students.empty and "Academic Year" in df_students.columns:
-                academic_years += df_students["Academic Year"].dropna().unique().tolist()
+        with col_yr:
+            raw_years = (
+                df_attendance["Academic Year"].dropna().unique().tolist()
+                if "Academic Year" in df_attendance.columns
+                else ["1st Year", "2nd Year", "3rd Year", "4th Year"]
+            )
+            filter_year = st.selectbox("Filter by Academic Year", ["All Years"] + raw_years)
 
-            selected_year = st.selectbox(
-                "Filter by Academic Year", academic_years, key="view_year"
+        with col_date:
+            dates = df_attendance["Date"].dropna().unique().tolist()
+            filter_date = st.selectbox("Filter by Date", dates, index=0 if dates else None)
+
+        with col_sort:
+            filter_status = st.selectbox(
+                "Filter / Sort Records by Status:",
+                ["All Students", "Present Only", "Absent Only"]
             )
 
-        with filter_col2:
-            unique_dates = df_attendance["Date"].unique().tolist()
-            selected_date = st.selectbox(
-                "Filter by Date", ["All Dates"] + unique_dates, key="view_date"
-            )
-
-        with filter_col3:
-            sort_by = st.selectbox(
-                "Sort Records by:",
-                ["Date (Newest First)", "Date (Oldest First)", "Student ID", "Present", "Absent"],
-                key="view_sort"
-            )
-
+        # ২. ফিল্টারিং প্রয়োগ
         filtered_df = df_attendance.copy()
-        if not df_students.empty and "Academic Year" in df_students.columns:
-            if "Academic Year" not in filtered_df.columns:
-                filtered_df = filtered_df.merge(
-                    df_students[["Student ID", "Academic Year"]],
-                    on="Student ID",
-                    how="left"
+        if filter_year != "All Years" and "Academic Year" in filtered_df.columns:
+            filtered_df = filtered_df[filtered_df["Academic Year"] == filter_year]
+
+        if filter_date:
+            filtered_df = filtered_df[filtered_df["Date"] == filter_date]
+
+        if filtered_df.empty:
+            st.warning("No records found for the selected criteria.")
+        else:
+            # ওইদিন অনুষ্ঠিত মোট কোর্সের সংখ্যা বের করা
+            total_classes_conducted = filtered_df["Course"].nunique() if "Course" in filtered_df.columns else 1
+
+            # ৩. স্টুডেন্ট ওয়াইজ ডাটা গ্রুপ করা
+            summary_list = []
+
+            # ওই একাডেমিক ইয়ারের নিবন্ধিত স্টুডেন্টদের ডাটা আনা
+            valid_students = df_students.copy()
+            if filter_year != "All Years" and "Academic Year" in valid_students.columns:
+                valid_students = valid_students[valid_students["Academic Year"] == filter_year]
+
+            valid_students["Student ID"] = valid_students["Student ID"].astype(str).str.strip()
+
+            for _, s_row in valid_students.iterrows():
+                s_id = s_row["Student ID"]
+                s_name = s_row["Name"]
+                s_year = s_row.get("Academic Year", filter_year)
+
+                # নির্দিষ্ট স্টুডেন্টের রেকর্ড ফিল্টার
+                st_records = filtered_df[filtered_df["Student ID"] == s_id]
+
+                if not st_records.empty:
+                    # ওইদিন Present থাকা কোর্সের সংখ্যা
+                    p_count = len(st_records[st_records["Status"].str.lower() == "present"])
+                    
+                    status_label = "Present" if p_count > 0 else "Absent"
+                    
+                    summary_list.append({
+                        "Date": filter_date if filter_date else "N/A",
+                        "Student ID": s_id,
+                        "Name": s_name,
+                        "Academic Year": s_year,
+                        "Classes Attended": f"{p_count} / {total_classes_conducted}",
+                        "Attended Count": p_count,
+                        "Status": status_label
+                    })
+
+            summary_df = pd.DataFrame(summary_list)
+
+            if not summary_df.empty:
+                # ৪. Present / Absent ফিল্টার ও শর্টিং
+                if filter_status == "Present Only":
+                    summary_df = summary_df[summary_df["Status"] == "Present"]
+                    summary_df = summary_df.sort_values(by="Attended Count", ascending=False)
+                elif filter_status == "Absent Only":
+                    summary_df = summary_df[summary_df["Status"] == "Absent"]
+                else:
+                    # অল সিলেক্ট থাকলে Present রা আগে এবং ক্লাসের সংখ্যা অনুযায়ী শর্ট
+                    summary_df = summary_df.sort_values(by=["Attended Count", "Student ID"], ascending=[False, True])
+
+                # মেট্রিক্স / কাউন্টার সামারি
+                total_st = len(summary_list)
+                present_st = len([x for x in summary_list if x["Status"] == "Present"])
+                absent_st = total_st - present_st
+
+                col_m1, col_m2, col_m3 = st.columns(3)
+                col_m1.metric("Total Students", total_st)
+                col_m2.metric("Present Students", present_st)
+                col_m3.metric("Absent Students", absent_st)
+
+                st.markdown("---")
+
+                # প্রদর্শনের জন্য কলামগুলো সুন্দর করা
+                display_df = summary_df[["Date", "Student ID", "Name", "Academic Year", "Classes Attended", "Status"]]
+                st.dataframe(display_df, use_container_width=True)
+
+                # CSV ডাউনলোড
+                csv = display_df.to_csv(index=False).encode('utf-8')
+                st.download_button(
+                    label="Download Attendance Summary as CSV",
+                    data=csv,
+                    file_name=f"Attendance_Summary_{filter_date}.csv",
+                    mime="text/csv"
                 )
-
-        if selected_year != "All Years" and "Academic Year" in filtered_df.columns:
-            filtered_df = filtered_df[filtered_df["Academic Year"] == selected_year]
-
-        if selected_date != "All Dates":
-            filtered_df = filtered_df[filtered_df["Date"] == selected_date]
-
-        if "Date" in filtered_df.columns:
-            try:
-                filtered_df["_temp_date"] = pd.to_datetime(filtered_df["Date"])
-                if sort_by == "Date (Newest First)":
-                    filtered_df = filtered_df.sort_values(by="_temp_date", ascending=False)
-                elif sort_by == "Date (Oldest First)":
-                    filtered_df = filtered_df.sort_values(by="_temp_date", ascending=True)
-                filtered_df = filtered_df.drop(columns=["_temp_date"])
-            except Exception:
-                pass
-
-        if sort_by == "Student ID" and "Student ID" in filtered_df.columns:
-            try:
-                filtered_df["_temp_id"] = pd.to_numeric(filtered_df["Student ID"])
-                filtered_df = filtered_df.sort_values(by="_temp_id", ascending=True).drop(columns=["_temp_id"])
-            except Exception:
-                filtered_df = filtered_df.sort_values(by="Student ID", ascending=True)
-
-        total_records = len(filtered_df)
-        present_count = len(
-            filtered_df[filtered_df["Status"].astype(str).str.lower() == "present"]
-        )
-        absent_count = total_records - present_count
-
-        st.markdown("---")
-        m_col1, m_col2, m_col3 = st.columns(3)
-        m_col1.metric("Total Records", total_records)
-        m_col2.metric("Present", present_count)
-        m_col3.metric("Absent", absent_count)
-
-        st.dataframe(filtered_df, use_container_width=True)
-
-        csv = filtered_df.to_csv(index=False).encode("utf-8")
-        st.download_button(
-            label="Download Attendance as CSV",
-            data=csv,
-            file_name=f"attendance_report_{selected_year}_{selected_date}.csv",
-            mime="text/csv",
-        )
 
 # -------------------------------------------------------------
 # 4. MANAGE STUDENTS (PROMOTION & DELETE TOGETHER)
