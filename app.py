@@ -57,6 +57,20 @@ def load_attendance():
     return df
 
 
+# Google Sheet-এর 'Courses' ট্যাব থেকে ডাইনামিকালি কোর্স লোড করার ফাংশন
+def load_courses():
+    try:
+        courses_worksheet = sheet.worksheet("Courses")
+        data = courses_worksheet.get_all_records()
+        df = pd.DataFrame(data)
+        if not df.empty:
+            df.columns = df.columns.str.strip()
+        return df
+    except Exception:
+        # যদি Courses নামের শিট খুঁজে না পাওয়া যায়
+        return pd.DataFrame()
+
+
 st.title("OASIS")
 st.markdown("---")
 # Sidebar Navigation
@@ -74,14 +88,14 @@ menu = st.sidebar.selectbox(
 # -------------------------------------------------------------
 # PASSWORD PROTECTION CHECK FOR ADMIN PAGES
 # -------------------------------------------------------------
-protected_pages = ["Mark Attendance", "Register Student","View Records", "Manage Students"]
+protected_pages = ["Mark Attendance", "Register Student", "View Records", "Manage Students"]
 
 if menu in protected_pages:
     if "authenticated" not in st.session_state:
         st.session_state.authenticated = False
 
     if not st.session_state.authenticated:
-        st.header(f" Admin Access Required")
+        st.header("Admin Access Required")
         st.warning("Please enter the password to access this section.")
 
         entered_password = st.text_input(
@@ -112,6 +126,7 @@ if menu == "Mark Attendance":
     st.header("Mark Daily Attendance")
 
     df_students = load_students()
+    df_courses = load_courses()  # গুগল শিট থেকে কোর্স ফিল্টার করার ডাটা নেওয়া হচ্ছে
 
     if df_students.empty or "Student ID" not in df_students.columns:
         st.warning(
@@ -127,43 +142,18 @@ if menu == "Mark Attendance":
             "Select Academic Year to Mark", academic_years
         )
 
-        # ইয়ার অনুযায়ী কোর্সসমূহের তালিকা
-        year_courses = {
-            "1st Year": [
-                "GETh: 1001: Geographical Thoughts and Concepts",
-                "GETh: 1002: Introduction to Physical Geography",
-                "GETh: 1003: Introduction to Human Geography",
-                "GETh: 1004: Concept of Region and World Regional Pattern",
-            ],
-            "2nd Year": [
-                "GETh: 2001: Environmental Chemistry",
-                "GETh: 2002: Geomorphology",
-                "GETh: 2003: Climatology",
-                "GETh: 2004: Economic Geography",
-                "GETh: 2005: Cultural Geography",
-                "GETh: 2006: Quantitative Techniques in Geography - I",
-            ],
-            "3rd Year": [
-                "GETh: 3001: Oceanography",
-                "GETh: 3002: Geography of Soil",
-                "GETh: 3003: Biogeography",
-                "GETh: 3004: Population Geography",
-                "GETh: 3005: Geography of Settlement",
-                "GETh: 3006: Geography of Bangladesh",
-            ],
-            "4th Year": [
-                "GETh: 4001: Hydrology and Fluvial Morphology",
-                "GETh: 4002: Disaster Management",
-                "GETh: 4003: Regional Geography and Environment of South Asia",
-                "GETh: 4004: Transport Geography",
-                "GETh: 4005: Urban Geography",
-                "GETh: 4006: Political Geography",
-                "GELb: 4007: Quantitative Techniques in Geography - II",
-            ],
-        }
+        # গুগল শিট থেকে কোর্স লোড করা
+        available_courses = []
+        if not df_courses.empty and "Academic Year" in df_courses.columns and "Course Title" in df_courses.columns:
+            filtered_courses = df_courses[
+                df_courses["Academic Year"].astype(str).str.strip() == str(selected_year).strip()
+            ]
+            available_courses = filtered_courses["Course Title"].dropna().tolist()
 
-        # সিলেক্টেড ইয়ারের আন্ডারে কোর্স ফিল্টার করা
-        available_courses = year_courses.get(selected_year, ["General Course"])
+        # যদি শিটে ডাটা না থাকে বা কোনো কোর্স না মেলে, তবে ডিফল্ট অপশন
+        if not available_courses:
+            available_courses = ["General Course"]
+
         selected_course = st.selectbox("Select Course Code & Title", available_courses)
 
         filtered_students = df_students.copy()
@@ -181,9 +171,9 @@ if menu == "Mark Attendance":
         st.info("Check the box next to the student if they are **Present**. (Unchecked means **Absent**)")
 
         # স্টুডেন্ট আইডি সর্টিং ড্রপডাউন
-        sort_order =st.selectbox (
+        sort_order = st.selectbox(
             "Sort Student ID by:",
-            ["Ascending (Low to High)"],
+            ["Ascending (Low to High)", "Descending (High to Low)"],
             key="attendance_id_sort",
         )
 
@@ -364,7 +354,7 @@ elif menu == "View Records":
             academic_years = ["All Years"]
             if not df_students.empty and "Academic Year" in df_students.columns:
                 academic_years += df_students["Academic Year"].dropna().unique().tolist()
-            
+
             selected_year = st.selectbox(
                 "Filter by Academic Year", academic_years, key="view_year"
             )
@@ -527,7 +517,7 @@ elif menu == "Student Percentage Checker":
 
                 # Display Individual Student Summary Card & Metrics
                 st.markdown(f"### Progress Summary for: **{student_name}** (ID: {input_student_id})")
-                
+
                 summary_df = pd.DataFrame([{
                     "Student ID": input_student_id,
                     "Name": student_name,
@@ -536,7 +526,7 @@ elif menu == "Student Percentage Checker":
                     "Absent": a_count,
                     "Attendance Percentage (%)": percentage
                 }])
-                
+
                 st.dataframe(summary_df, use_container_width=True)
 
                 st.markdown("---")
@@ -555,10 +545,10 @@ elif menu == "Student Percentage Checker":
                 else:
                     # Select relevant columns for clear viewing
                     display_cols = [col for col in ["Date", "Course", "Status"] if col in st_att.columns]
-                    
+
                     if display_cols:
                         detailed_df = st_att[display_cols].copy()
-                        
+
                         # Sort by date (latest dates first) if Date column exists
                         if "Date" in detailed_df.columns:
                             try:
@@ -567,8 +557,7 @@ elif menu == "Student Percentage Checker":
                                 detailed_df["Date"] = detailed_df["Date"].dt.strftime('%Y-%m-%d')
                             except Exception:
                                 pass
-                        
+
                         st.dataframe(detailed_df, use_container_width=True)
                     else:
                         st.dataframe(st_att, use_container_width=True)
-
