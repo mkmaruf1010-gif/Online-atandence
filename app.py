@@ -619,22 +619,29 @@ elif menu == "Manage Students":
 
         st.markdown("---")
 
-        # ৩. Delete Student Section
+       # ৩. Delete Student Section (Manual Roll Input)
         st.subheader(" Delete a Student")
-        del_id = st.selectbox(
-            "Select Student ID to remove",
-            df_students["Student ID"].astype(str).values,
-        )
+        
+        # ড্রপডাউনের বদলে ম্যানুয়াল টাইপিংয়ের জন্য টেক্সট ইনপুট
+        del_id_input = st.text_input("Enter Student ID / Roll to Delete", placeholder="e.g., 32xxx1")
 
-        if st.button("Delete Student"):
-            cell = students_worksheet.find(str(del_id))
-            if cell:
-                students_worksheet.delete_rows(cell.row)
-                st.cache_data.clear()
-                st.success(f"Student ID {del_id} removed from Google Sheets!")
-                st.rerun()
+        if st.button("Delete Student", type="primary"):
+            clean_del_id = del_id_input.strip()
+            if not clean_del_id:
+                st.warning(" অনুগ্রহ করে একটি Student ID টাইপ করুন।")
             else:
-                st.error("Student ID not found in sheet.")
+                try:
+                    # গুগল শিটে স্টুডেন্ট আইডিটি খুঁজে বের করা
+                    cell = students_worksheet.find(clean_del_id)
+                    if cell:
+                        students_worksheet.delete_rows(cell.row)
+                        st.cache_data.clear()
+                        st.success(f" Student ID '{clean_del_id}' deleted successfully!")
+                        st.rerun()
+                    else:
+                        st.error(f" Student ID '{clean_del_id}' found in Google Sheets database.")
+                except Exception as e:
+                    st.error(f"Error deleting student: {e}")
 # -------------------------------------------------------------
 # 5. STUDENT PERCENTAGE CHECKER
 # -------------------------------------------------------------
