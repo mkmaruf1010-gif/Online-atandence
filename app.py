@@ -353,7 +353,7 @@ elif menu == "Register Student":
                 missing_cols = [col for col in required_cols if col not in new_df.columns]
 
                 if missing_cols:
-                    st.error(f"❌ আপনার এক্সেল ফাইলে নিচের কলামগুলো অনুপস্থিত: {', '.join(missing_cols)}")
+                    st.error(f" আপনার এক্সেল ফাইলে নিচের কলামগুলো অনুপস্থিত: {', '.join(missing_cols)}")
                 else:
                     # ফাইল থেকে প্রয়োজনীয় কলাম ফিল্টার করা ও স্ট্রিং-এ কনভার্ট করা
                     new_df = new_df[required_cols].dropna(subset=["Student ID", "Name"])
@@ -495,7 +495,7 @@ elif menu == "Manage Students":
             "No students registered yet or missing 'Student ID' column header in Google Sheets."
         )
     else:
-        st.subheader("🔍 Bulk Promote Selected Students")
+        st.subheader(" Bulk Promote Selected Students")
 
         # ১. বাধ্যতামূলক ইয়ার ফিল্টার (ডিফল্টভাবে ফাঁকা থাকবে)
         raw_years = (
@@ -514,7 +514,7 @@ elif menu == "Manage Students":
 
         # যতক্ষণ পর্যন্ত ইয়ার সিলেক্ট না করা হবে
         if selected_filter_year == "-- Select Academic Year --":
-            st.info("👆 অনুগ্রহ করে স্টুডেন্ট লিস্ট দেখতে এবং প্রমোট করতে উপরে একটি **Academic Year** সিলেক্ট করুন।")
+            st.info(" অনুগ্রহ করে স্টুডেন্ট লিস্ট দেখতে এবং প্রমোট করতে উপরে একটি **Academic Year** সিলেক্ট করুন।")
         else:
             filtered_df = df_students[df_students["Academic Year"] == selected_filter_year].copy()
 
@@ -599,7 +599,7 @@ elif menu == "Manage Students":
 
                     if submit_promote:
                         if not selected_student_ids:
-                            st.warning("⚠️️ অনুগ্রহ করে অন্তত একজন স্টুডেন্ট সিলেক্ট করুন যাকে প্রমোট করতে চান।")
+                            st.warning("  অনুগ্রহ করে অন্তত একজন স্টুডেন্ট সিলেক্ট করুন যাকে প্রমোট করতে চান।")
                         else:
                             df_students.loc[
                                 df_students["Student ID"].astype(str).str.strip().isin(selected_student_ids),
@@ -612,7 +612,7 @@ elif menu == "Manage Students":
                                 students_worksheet.clear()
                                 students_worksheet.update(rows_to_save)
                                 st.cache_data.clear()
-                                st.success(f"🎉 Successfully promoted {len(selected_student_ids)} student(s) to **{promote_to_year}**!")
+                                st.success(f" Successfully promoted {len(selected_student_ids)} student(s) to **{promote_to_year}**!")
                                 st.rerun()
                             except Exception as e:
                                 st.error(f"Error updating Google Sheets: {e}")
@@ -620,7 +620,7 @@ elif menu == "Manage Students":
         st.markdown("---")
 
         # ৩. Delete Student Section
-        st.subheader("🗑️ Delete a Student")
+        st.subheader(" Delete a Student")
         del_id = st.selectbox(
             "Select Student ID to remove",
             df_students["Student ID"].astype(str).values,
