@@ -495,7 +495,7 @@ elif menu == "Manage Students":
             "No students registered yet or missing 'Student ID' column header in Google Sheets."
         )
     else:
-        st.subheader(" Bulk Promote Selected Students")
+        st.subheader(" Promote Selected Students")
 
         # ১. বাধ্যতামূলক ইয়ার ফিল্টার (ডিফল্টভাবে ফাঁকা থাকবে)
         raw_years = (
@@ -617,31 +617,66 @@ elif menu == "Manage Students":
                             except Exception as e:
                                 st.error(f"Error updating Google Sheets: {e}")
 
-        st.markdown("---")
-
-       # ৩. Delete Student Section (Manual Roll Input)
+       st.markdown("---")
         st.subheader(" Delete a Student")
         
-        # ড্রপডাউনের বদলে ম্যানুয়াল টাইপিংয়ের জন্য টেক্সট ইনপুট
-        del_id_input = st.text_input("Enter Student ID / Roll to Delete", placeholder="e.g., 32xxx1")
+        # ১. রোল/আইডি ইনপুট নেওয়া
+        del_id_input = st.text_input(
+            "Enter Student ID / Roll to Search", 
+            placeholder="e.g., 210101",
+            key="del_search_input"
+        )
 
-        if st.button("Delete Student", type="primary"):
-            clean_del_id = del_id_input.strip()
-            if not clean_del_id:
-                st.warning(" অনুগ্রহ করে একটি Student ID টাইপ করুন।")
+        clean_del_id = del_id_input.strip()
+
+        if clean_del_id:
+            # গুগল শিট ডেটাফ্রেমে আইডি সার্চ করা
+            matched_student = df_students[
+                df_students["Student ID"].astype(str).str.strip() == clean_del_id
+            ]
+
+            if not matched_student.empty:
+                # স্টুডেন্টের তথ্য বের করা
+                student_info = matched_student.iloc[0]
+                s_id = str(student_info["Student ID"]).strip()
+                s_name = str(student_info["Name"]).strip()
+                s_session = str(student_info.get("Session", "N/A")).strip()
+                s_year = str(student_info.get("Academic Year", "N/A")).strip()
+
+                st.success(" Student Found!")
+
+                # কার্ড/কন্টেইনারের মধ্যে স্টুডেন্টের বিবরণ দেখানো
+                with st.container():
+                    st.markdown(
+                        f"""
+                        <div style="border:1px solid #ddd; padding: 15px; border-radius: 8px; background-color: #f9f9f9; margin-bottom: 15px;">
+                            <h4 style="margin-top:0; color: #333;"> Student Details Preview</h4>
+                            <p><b>Student ID / Roll:</b> {s_id}</p>
+                            <p><b>Name:</b> {s_name}</p>
+                            <p><b>Session:</b> {s_session}</p>
+                            <p><b>Academic Year:</b> {s_year}</p>
+                        </div>
+                        """, 
+                        unsafe_allow_html=True
+                    )
+
+                # নিশ্চিতকরণ সতর্কবার্তা ও ডিলিট বাটন
+                st.warning(f"  Are you sure you want to delete **{s_name}** (ID: {s_id}) permanently?")
+                
+                if st.button("  Confirm Delete Student", type="primary"):
+                    try:
+                        cell = students_worksheet.find(s_id)
+                        if cell:
+                            students_worksheet.delete_rows(cell.row)
+                            st.cache_data.clear()
+                            st.success(f"  Student ID '{s_id}' ({s_name}) has been deleted successfully!")
+                            st.rerun()
+                        else:
+                            st.error("Student ID cell could not be located in Google Sheets.")
+                    except Exception as e:
+                        st.error(f"Error deleting student: {e}")
             else:
-                try:
-                    # গুগল শিটে স্টুডেন্ট আইডিটি খুঁজে বের করা
-                    cell = students_worksheet.find(clean_del_id)
-                    if cell:
-                        students_worksheet.delete_rows(cell.row)
-                        st.cache_data.clear()
-                        st.success(f" Student ID '{clean_del_id}' deleted successfully!")
-                        st.rerun()
-                    else:
-                        st.error(f" Student ID '{clean_del_id}' found in Google Sheets database.")
-                except Exception as e:
-                    st.error(f"Error deleting student: {e}")
+                st.error(f"  No student found with ID/Roll: '{clean_del_id}'")
 # -------------------------------------------------------------
 # 5. STUDENT PERCENTAGE CHECKER
 # -------------------------------------------------------------
