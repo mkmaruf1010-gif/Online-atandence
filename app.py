@@ -460,9 +460,7 @@ elif menu == "Attendance Records":
                 st_records = filtered_df[filtered_df["Student ID"] == s_id]
 
                 if not st_records.empty:
-                    # ওইদিন Present থাকা কোর্সের সংখ্যা
                     p_count = len(st_records[st_records["Status"].str.lower() == "present"])
-                    
                     status_label = "Present" if p_count > 0 else "Absent"
                     
                     summary_list.append({
@@ -485,10 +483,9 @@ elif menu == "Attendance Records":
                 elif filter_status == "Absent Only":
                     summary_df = summary_df[summary_df["Status"] == "Absent"]
                 else:
-                    # অল সিলেক্ট থাকলে Present রা আগে এবং ক্লাসের সংখ্যা অনুযায়ী শর্ট
                     summary_df = summary_df.sort_values(by=["Attended Count", "Student ID"], ascending=[False, True])
 
-                # মেট্রিক্স / কাউন্টার সামারি
+                # মেট্রিক্স সামারি
                 total_st = len(summary_list)
                 present_st = len([x for x in summary_list if x["Status"] == "Present"])
                 absent_st = total_st - present_st
@@ -500,7 +497,7 @@ elif menu == "Attendance Records":
 
                 st.markdown("---")
 
-                # প্রদর্শনের জন্য কলামগুলো সুন্দর করা
+                # ডাটাফ্রেমে রেজাল্ট দেখানো
                 display_df = summary_df[["Date", "Student ID", "Name", "Academic Year", "Classes Attended", "Status"]]
                 st.dataframe(display_df, use_container_width=True)
 
