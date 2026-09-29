@@ -147,7 +147,7 @@ if menu == "Mark Attendance":
 
         # যদি ইউজার কোনো একাডেমিক ইয়ার সিলেক্ট না করে
         if selected_year == "-- Select Academic Year --":
-            st.info("👆 Please select an Academic Year above to display courses and student list.")
+            st.info(" Please select an Academic Year above to display courses and student list.")
         else:
             # সিলেক্ট করা ইয়ারের ওপর ভিত্তি করে গুগল শিট থেকে কোর্স লোড করা
             available_courses = []
@@ -453,9 +453,71 @@ elif menu == "Manage Students":
             "No students registered yet or missing 'Student ID' column header in Google Sheets."
         )
     else:
+        # স্টুডেন্টদের তালিকা দেখানো
         st.dataframe(df_students, use_container_width=True)
 
-        st.subheader("Delete a Student")
+        st.markdown("---")
+        
+        # --- ১. Bulk Promote/Update Section ---
+        st.subheader("🎓 Bulk Promote / Update Academic Year")
+        st.info("এই টুলের মাধ্যমে আপনি একটি নির্দিষ্ট সেশনের সকল শিক্ষার্থীকে এক ক্লিকেই পরবর্তী বর্ষে (যেমন: 1st Year থেকে 2nd Year) প্রমোট করতে পারবেন।")
+
+        if "Session" in df_students.columns and "Academic Year" in df_students.columns:
+            # সেশন এবং ইয়ার সিলেক্ট করার জন্য কলাম
+            col1, col2, col3 = st.columns(3)
+            
+            with col1:
+                available_sessions = df_students["Session"].astype(str).dropna().unique().tolist()
+                selected_session = st.selectbox("Select Session (সেশন)", available_sessions)
+            
+            with col2:
+                current_years = df_students[df_students["Session"].astype(str) == selected_session]["Academic Year"].dropna().unique().tolist()
+                if not current_years:
+                    current_years = ["1st Year", "2nd Year", "3rd Year", "4th Year"]
+                current_year = st.selectbox("Current Academic Year", current_years)
+                
+            with col3:
+                new_year = st.selectbox(
+                    "Promote To (New Year)", 
+                    ["1st Year", "2nd Year", "3rd Year", "4th Year", "Graduated"]
+                )
+            
+            # কতজন স্টুডেন্ট আপডেট হবে তার হিসাব বের করা
+            affected_students = df_students[
+                (df_students["Session"].astype(str) == selected_session) & 
+                (df_students["Academic Year"] == current_year)
+            ]
+            
+            st.write(f"**{len(affected_students)}** students found for **{selected_session}** in **{current_year}**.")
+            
+            # প্রমোট বাটন
+            if len(affected_students) > 0:
+                if st.button("Promote Students", type="primary"):
+                    # ডাটাফ্রেমে নতুন ইয়ার আপডেট করা
+                    df_students.loc[
+                        (df_students["Session"].astype(str) == selected_session) & 
+                        (df_students["Academic Year"] == current_year), 
+                        "Academic Year"
+                    ] = new_year
+                    
+                    # গুগল শিটে সেভ করার জন্য ডাটা প্রস্তুত করা
+                    rows_to_save = [df_students.columns.tolist()] + df_students.values.tolist()
+                    
+                    try:
+                        # গুগল শিটের ডাটা ক্লিয়ার করে নতুন ডাটা বসানো
+                        students_worksheet.clear()
+                        students_worksheet.update(rows_to_save)
+                        st.success(f" Successfully promoted {len(affected_students)} students to {new_year}!")
+                        st.rerun()  # অ্যাপ রিফ্রেশ করা
+                    except Exception as e:
+                        st.error(f"Failed to update Google Sheets: {e}")
+        else:
+            st.warning("Your 'Students' sheet must have 'Session' and 'Academic Year' columns to use this feature.")
+
+        st.markdown("---")
+
+        # --- ২. Delete Student Section ---
+        st.subheader(" Delete a Student")
         del_id = st.selectbox(
             "Select Student ID to remove",
             df_students["Student ID"].astype(str).values,
@@ -469,7 +531,6 @@ elif menu == "Manage Students":
                 st.rerun()
             else:
                 st.error("Student ID not found in sheet.")
-
 # -------------------------------------------------------------
 # 5. STUDENT PERCENTAGE CHECKER
 # -------------------------------------------------------------
