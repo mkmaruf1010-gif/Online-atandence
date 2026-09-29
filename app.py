@@ -422,8 +422,8 @@ elif menu == "View Records":
 
         with filter_col3:
             sort_by = st.selectbox(
-                "Sort / Filter Status:",
-                ["All Records", "Present Only", "Absent Only", "Date (Newest First)", "Date (Oldest First)", "Student ID"],
+                "Sort Records by:",
+                ["Student ID", "Date (Newest First)", "Date (Oldest First)"],
                 key="view_sort"
             )
 
@@ -442,51 +442,56 @@ elif menu == "View Records":
         if selected_date != "All Dates":
             filtered_df = filtered_df[filtered_df["Date"] == selected_date]
 
-        # Status Filtering (Present / Absent)
-        if sort_by == "Present Only" and "Status" in filtered_df.columns:
-            filtered_df = filtered_df[filtered_df["Status"].astype(str).str.lower() == "present"]
-        elif sort_by == "Absent Only" and "Status" in filtered_df.columns:
-            filtered_df = filtered_df[filtered_df["Status"].astype(str).str.lower() == "absent"]
+        # শুধু উপস্থিত (Present) ক্লাস গণনা করার জন্য লজিক
+        if "Status" in filtered_df.columns:
+            filtered_df["Is_Present"] = filtered_df["Status"].astype(str).str.strip().str.lower() == "present"
+        else:
+            filtered_df["Is_Present"] = False
 
-        # Date Sorting
-        if "Date" in filtered_df.columns:
+        # Student ID, Name এবং Date অনুযায়ী গ্রুপ করে টোটাল ক্লাসের সংখ্যা হিসাব
+        group_cols = ["Date", "Student ID", "Name"]
+        summary_df = (
+            filtered_df.groupby(group_cols, as_index=False)["Is_Present"]
+            .sum()
+            .rename(columns={"Is_Present": "Total Classes Attended"})
+        )
+
+        # Sorting লজিক
+        if sort_by == "Student ID":
             try:
-                filtered_df["_temp_date"] = pd.to_datetime(filtered_df["Date"])
-                if sort_by == "Date (Newest First)":
-                    filtered_df = filtered_df.sort_values(by="_temp_date", ascending=False)
-                elif sort_by == "Date (Oldest First)":
-                    filtered_df = filtered_df.sort_values(by="_temp_date", ascending=True)
-                filtered_df = filtered_df.drop(columns=["_temp_date"])
+                summary_df["_temp_id"] = pd.to_numeric(summary_df["Student ID"])
+                summary_df = summary_df.sort_values(by="_temp_id", ascending=True).drop(columns=["_temp_id"])
+            except Exception:
+                summary_df = summary_df.sort_values(by="Student ID", ascending=True)
+        elif sort_by == "Date (Newest First)":
+            try:
+                summary_df["_temp_date"] = pd.to_datetime(summary_df["Date"])
+                summary_df = summary_df.sort_values(by="_temp_date", ascending=False).drop(columns=["_temp_date"])
+            except Exception:
+                pass
+        elif sort_by == "Date (Oldest First)":
+            try:
+                summary_df["_temp_date"] = pd.to_datetime(summary_df["Date"])
+                summary_df = summary_df.sort_values(by="_temp_date", ascending=True).drop(columns=["_temp_date"])
             except Exception:
                 pass
 
-        # Student ID Sorting
-        if sort_by == "Student ID" and "Student ID" in filtered_df.columns:
-            try:
-                filtered_df["_temp_id"] = pd.to_numeric(filtered_df["Student ID"])
-                filtered_df = filtered_df.sort_values(by="_temp_id", ascending=True).drop(columns=["_temp_id"])
-            except Exception:
-                filtered_df = filtered_df.sort_values(by="Student ID", ascending=True)
-
-        total_records = len(filtered_df)
-        present_count = len(
-            filtered_df[filtered_df["Status"].astype(str).str.lower() == "present"]
-        ) if "Status" in filtered_df.columns else 0
-        absent_count = total_records - present_count
+        total_students = len(summary_df["Student ID"].unique())
+        total_attended_classes = summary_df["Total Classes Attended"].sum()
 
         st.markdown("---")
-        m_col1, m_col2, m_col3 = st.columns(3)
-        m_col1.metric("Total Records", total_records)
-        m_col2.metric("Present", present_count)
-        m_col3.metric("Absent", absent_count)
+        m_col1, m_col2 = st.columns(2)
+        m_col1.metric("Total Students Listed", total_students)
+        m_col2.metric("Total Classes Attended", total_attended_classes)
 
-        st.dataframe(filtered_df, use_container_width=True)
+        # টেবিলে শুধু Date, Student ID, Name এবং Total Classes Attended দেখাবে
+        st.dataframe(summary_df[["Date", "Student ID", "Name", "Total Classes Attended"]], use_container_width=True)
 
-        csv = filtered_df.to_csv(index=False).encode("utf-8")
+        csv = summary_df[["Date", "Student ID", "Name", "Total Classes Attended"]].to_csv(index=False).encode("utf-8")
         st.download_button(
-            label="Download Attendance as CSV",
+            label="Download Attendance Summary as CSV",
             data=csv,
-            file_name=f"attendance_report_{selected_year}_{selected_date}.csv",
+            file_name=f"attendance_summary_{selected_year}_{selected_date}.csv",
             mime="text/csv",
         )
 # -------------------------------------------------------------
