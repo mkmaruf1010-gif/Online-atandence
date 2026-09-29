@@ -126,153 +126,157 @@ if menu == "Mark Attendance":
     st.header("Mark Daily Attendance")
 
     df_students = load_students()
-    df_courses = load_courses()  # গুগল শিট থেকে কোর্স ফিল্টার করার ডাটা নেওয়া হচ্ছে
+    df_courses = load_courses()
 
     if df_students.empty or "Student ID" not in df_students.columns:
         st.warning(
             "No students found or missing 'Student ID' column in the 'Students' sheet! Please check your Google Sheet headers: [Student ID, Name, Session, Academic Year]."
         )
     else:
-        academic_years = (
+        # একাডেমিক ইয়ারের তালিকা তৈরি (প্রথম অপশনটি খালি রাখা হয়েছে)
+        raw_years = (
             df_students["Academic Year"].unique().tolist()
             if "Academic Year" in df_students.columns
             else ["1st Year", "2nd Year", "3rd Year", "4th Year"]
         )
+        academic_years = ["-- Select Academic Year --"] + raw_years
+
         selected_year = st.selectbox(
-            "Select Academic Year to Mark", academic_years
+            "Select Academic Year to Mark", academic_years, index=0
         )
 
-        # গুগল শিট থেকে কোর্স লোড করা
-        available_courses = []
-        if not df_courses.empty and "Academic Year" in df_courses.columns and "Course Title" in df_courses.columns:
-            filtered_courses = df_courses[
-                df_courses["Academic Year"].astype(str).str.strip() == str(selected_year).strip()
-            ]
-            available_courses = filtered_courses["Course Title"].dropna().tolist()
-
-        # যদি শিটে ডাটা না থাকে বা কোনো কোর্স না মেলে, তবে ডিফল্ট অপশন
-        if not available_courses:
-            available_courses = ["General Course"]
-
-        selected_course = st.selectbox("Select Course Code & Title", available_courses)
-
-        filtered_students = df_students.copy()
-        if (
-            selected_year != "All"
-            and "Academic Year" in df_students.columns
-        ):
-            filtered_students = df_students[
-                df_students["Academic Year"] == selected_year
-            ]
-
-        att_date = st.date_input("Select Date", value=date.today())
-
-        st.markdown(f"### Student List for {selected_year} - {selected_course}")
-        st.info("Check the box next to the student if they are **Present**. (Unchecked means **Absent**)")
-
-        # স্টুডেন্ট আইডি সর্টিং ড্রপডাউন
-        sort_order = st.selectbox(
-            "Sort Student ID by:",
-            ["Ascending (Low to High)", "Descending (High to Low)"],
-            key="attendance_id_sort",
-        )
-
-        if not filtered_students.empty and "Student ID" in filtered_students.columns:
-            try:
-                filtered_students["_sort_id"] = pd.to_numeric(filtered_students["Student ID"])
-            except Exception:
-                filtered_students["_sort_id"] = filtered_students["Student ID"]
-
-            if sort_order == "Ascending (Low to High)":
-                filtered_students = filtered_students.sort_values(by="_sort_id", ascending=True)
-            elif sort_order == "Descending (High to Low)":
-                filtered_students = filtered_students.sort_values(by="_sort_id", ascending=False)
-
-            if "_sort_id" in filtered_students.columns:
-                filtered_students = filtered_students.drop(columns=["_sort_id"])
-
-        if filtered_students.empty:
-            st.warning(f"No students registered under {selected_year}.")
+        # যদি ইউজার কোনো একাডেমিক ইয়ার সিলেক্ট না করে
+        if selected_year == "-- Select Academic Year --":
+            st.info("👆 Please select an Academic Year above to display courses and student list.")
         else:
-            with st.form("attendance_form"):
-                attendance_status = {}
+            # সিলেক্ট করা ইয়ারের ওপর ভিত্তি করে গুগল শিট থেকে কোর্স লোড করা
+            available_courses = []
+            if not df_courses.empty and "Academic Year" in df_courses.columns and "Course Title" in df_courses.columns:
+                filtered_courses = df_courses[
+                    df_courses["Academic Year"].astype(str).str.strip() == str(selected_year).strip()
+                ]
+                available_courses = filtered_courses["Course Title"].dropna().tolist()
 
-                # টেবিলের হেডার কলাম
-                h_col1, h_col2, h_col3, h_col4 = st.columns([1, 2, 3, 2])
-                with h_col1:
-                    st.markdown("**Status**")
-                with h_col2:
-                    st.markdown("**Student ID**")
-                with h_col3:
-                    st.markdown("**Name**")
-                with h_col4:
-                    st.markdown("**Session**")
+            # যদি শিটে কোনো কোর্স না পাওয়া যায়
+            if not available_courses:
+                available_courses = ["General Course"]
 
-                st.markdown("---")
+            selected_course = st.selectbox("Select Course Code & Title", available_courses)
 
-                for index, row in filtered_students.iterrows():
-                    s_id = str(row["Student ID"]).strip()
-                    s_name = str(row["Name"]).strip()
-                    s_session = (
-                        str(row["Session"]).strip()
-                        if "Session" in df_students.columns
-                        else ""
-                    )
+            filtered_students = df_students.copy()
+            if "Academic Year" in df_students.columns:
+                filtered_students = df_students[
+                    df_students["Academic Year"] == selected_year
+                ]
 
-                    col1, col2, col3, col4 = st.columns([1, 2, 3, 2])
-                    with col1:
-                        # টিক দেওয়া থাকলে Present, না দেওয়া থাকলে Absent হিসেবে গণ্য হবে
-                        is_present = st.checkbox(
-                            "Present",
-                            value=False,
-                            key=f"att_{s_id}",
-                            label_visibility="collapsed",
+            att_date = st.date_input("Select Date", value=date.today())
+
+            st.markdown(f"### Student List for {selected_year} - {selected_course}")
+            st.info("Check the box next to the student if they are **Present**. (Unchecked means **Absent**)")
+
+            # স্টুডেন্ট আইডি সর্টিং ড্রপডাউন
+            sort_order = st.selectbox(
+                "Sort Student ID by:",
+                ["Ascending (Low to High)", "Descending (High to Low)"],
+                key="attendance_id_sort",
+            )
+
+            if not filtered_students.empty and "Student ID" in filtered_students.columns:
+                try:
+                    filtered_students["_sort_id"] = pd.to_numeric(filtered_students["Student ID"])
+                except Exception:
+                    filtered_students["_sort_id"] = filtered_students["Student ID"]
+
+                if sort_order == "Ascending (Low to High)":
+                    filtered_students = filtered_students.sort_values(by="_sort_id", ascending=True)
+                elif sort_order == "Descending (High to Low)":
+                    filtered_students = filtered_students.sort_values(by="_sort_id", ascending=False)
+
+                if "_sort_id" in filtered_students.columns:
+                    filtered_students = filtered_students.drop(columns=["_sort_id"])
+
+            if filtered_students.empty:
+                st.warning(f"No students registered under {selected_year}.")
+            else:
+                with st.form("attendance_form"):
+                    attendance_status = {}
+
+                    # টেবিলের হেডার কলাম
+                    h_col1, h_col2, h_col3, h_col4 = st.columns([1, 2, 3, 2])
+                    with h_col1:
+                        st.markdown("**Status**")
+                    with h_col2:
+                        st.markdown("**Student ID**")
+                    with h_col3:
+                        st.markdown("**Name**")
+                    with h_col4:
+                        st.markdown("**Session**")
+
+                    st.markdown("---")
+
+                    for index, row in filtered_students.iterrows():
+                        s_id = str(row["Student ID"]).strip()
+                        s_name = str(row["Name"]).strip()
+                        s_session = (
+                            str(row["Session"]).strip()
+                            if "Session" in df_students.columns
+                            else ""
                         )
-                    with col2:
-                        st.write(f"{s_id}")
-                    with col3:
-                        st.write(f"**{s_name}**")
-                    with col4:
-                        st.write(f"{s_session}")
 
-                    # Present/Absent স্ট্যাটাস ডিকশনারিতে রাখা হচ্ছে
-                    attendance_status[s_id] = {
-                        "Name": s_name,
-                        "Status": "Present" if is_present else "Absent",
-                    }
+                        col1, col2, col3, col4 = st.columns([1, 2, 3, 2])
+                        with col1:
+                            # টিক দেওয়া থাকলে Present, না দেওয়া থাকলে Absent হিসেবে গণ্য হবে
+                            is_present = st.checkbox(
+                                "Present",
+                                value=False,
+                                key=f"att_{s_id}",
+                                label_visibility="collapsed",
+                            )
+                        with col2:
+                            st.write(f"{s_id}")
+                        with col3:
+                            st.write(f"**{s_name}**")
+                        with col4:
+                            st.write(f"{s_session}")
 
-                st.markdown("---")
-                submitted = st.form_submit_button("Save Attendance", use_container_width=True)
+                        # Present/Absent স্ট্যাটাস ডিকশনারিতে রাখা হচ্ছে
+                        attendance_status[s_id] = {
+                            "Name": s_name,
+                            "Status": "Present" if is_present else "Absent",
+                        }
 
-                if submitted:
-                    df_attendance = load_attendance()
+                    st.markdown("---")
+                    submitted = st.form_submit_button("Save Attendance", use_container_width=True)
 
-                    # হেডার ঠিক রাখা
-                    if not df_attendance.empty and "Date" in df_attendance.columns:
-                        rows_to_save = [
-                            df_attendance.columns.tolist()
-                        ] + df_attendance.values.tolist()
-                    else:
-                        rows_to_save = [["Date", "Course", "Student ID", "Name", "Status"]]
+                    if submitted:
+                        df_attendance = load_attendance()
 
-                    # সকল স্টুডেন্টের (Present ও Absent) এন্ট্রি যুক্ত করা
-                    for s_id, data in attendance_status.items():
-                        rows_to_save.append(
-                            [
-                                str(att_date),
-                                str(selected_course),
-                                str(s_id),
-                                str(data["Name"]),
-                                str(data["Status"]),
-                            ]
+                        # হেডার ঠিক রাখা
+                        if not df_attendance.empty and "Date" in df_attendance.columns:
+                            rows_to_save = [
+                                df_attendance.columns.tolist()
+                            ] + df_attendance.values.tolist()
+                        else:
+                            rows_to_save = [["Date", "Course", "Student ID", "Name", "Status"]]
+
+                        # সকল স্টুডেন্টের (Present ও Absent) এন্ট্রি যুক্ত করা
+                        for s_id, data in attendance_status.items():
+                            rows_to_save.append(
+                                [
+                                    str(att_date),
+                                    str(selected_course),
+                                    str(s_id),
+                                    str(data["Name"]),
+                                    str(data["Status"]),
+                                ]
+                            )
+
+                        # Sheets-এ নতুন ডাটা আপডেট
+                        attendance_worksheet.clear()
+                        attendance_worksheet.update(rows_to_save)
+                        st.success(
+                            f"Attendance successfully saved to Google Sheets for {selected_course} on {att_date}! (Present & Absent entries recorded)"
                         )
-
-                    # Sheets-এ নতুন ডাটা আপডেট
-                    attendance_worksheet.clear()
-                    attendance_worksheet.update(rows_to_save)
-                    st.success(
-                        f"Attendance successfully saved to Google Sheets for {selected_course} on {att_date}! (Present & Absent entries recorded)"
-                    )
 
 # -------------------------------------------------------------
 # 2. REGISTER STUDENT
