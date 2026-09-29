@@ -282,7 +282,7 @@ elif menu == "Register Student":
     # দুই ধরণের অপশন দেওয়া হচ্ছে: ১. ম্যানুয়াল সিঙ্গেল রেজিস্ট্রেশন, ২. বাল্ক এক্সেল আপলোড
     reg_option = st.radio(
         "Choose Registration Method",
-        ["Single Student Registration", "Bulk Upload via Excel / CSV"],
+        ["Single Student Registration", " Upload via Excel / CSV"],
         horizontal=True
     )
 
