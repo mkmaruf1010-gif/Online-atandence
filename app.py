@@ -147,7 +147,7 @@ if menu == "Mark Attendance":
         )
 
         if selected_year == "-- Select Academic Year --":
-            st.info("👆 Please select an Academic Year above to display courses and student list.")
+            st.info(" Please select an Academic Year above to display courses and student list.")
         else:
             available_courses = []
             if not df_courses.empty and "Academic Year" in df_courses.columns and "Course Title" in df_courses.columns:
@@ -274,52 +274,123 @@ if menu == "Mark Attendance":
                         )
 
 # -------------------------------------------------------------
-# 2. REGISTER STUDENT
+# 2. REGISTER STUDENT (WITH BULK EXCEL / CSV UPLOAD)
 # -------------------------------------------------------------
 elif menu == "Register Student":
-    st.header("Register a New Student")
+    st.header("Register Students")
 
-    with st.form("student_form"):
-        student_id = st.text_input("Student ID")
-        name = st.text_input("Full Name")
-        department = st.selectbox(
-            "Session",
-            [
-                "2021-22", "2022-23", "2023-24", "2024-25", "2025-26",
-                "2026-27", "2027-28", "2028-29", "2029-30", "2030-31"
-            ],
-        )
-        academic_year = st.selectbox(
-            "Academic Year",
-            ["1st Year", "2nd Year", "3rd Year", "4th Year"],
-        )
+    # দুই ধরণের অপশন দেওয়া হচ্ছে: ১. ম্যানুয়াল সিঙ্গেল রেজিস্ট্রেশন, ২. বাল্ক এক্সেল আপলোড
+    reg_option = st.radio(
+        "Choose Registration Method",
+        ["Single Student Registration", "Bulk Upload via Excel / CSV"],
+        horizontal=True
+    )
 
-        submit_student = st.form_submit_button("Add Student")
+    df_students = load_students()
 
-        if submit_student:
-            if not student_id or not name:
-                st.error("Please fill in both Student ID and Name.")
-            else:
-                df_students = load_students()
-                if (
-                    not df_students.empty
-                    and "Student ID" in df_students.columns
-                    and str(student_id)
-                    in df_students["Student ID"].astype(str).values
-                ):
-                    st.error(f"Student ID '{student_id}' already exists!")
+    # --- অপশন ১: ম্যানুয়ালি একজন একজন করে অ্যাড করা ---
+    if reg_option == "Single Student Registration":
+        st.subheader("Add Single Student")
+        with st.form("student_form"):
+            student_id = st.text_input("Student ID")
+            name = st.text_input("Full Name")
+            department = st.selectbox(
+                "Session",
+                [
+                    "2021-22", "2022-23", "2023-24", "2024-25", "2025-26",
+                    "2026-27", "2027-28", "2028-29", "2029-30", "2030-31"
+                ],
+            )
+            academic_year = st.selectbox(
+                "Academic Year",
+                ["1st Year", "2nd Year", "3rd Year", "4th Year"],
+            )
+
+            submit_student = st.form_submit_button("Add Student")
+
+            if submit_student:
+                if not student_id or not name:
+                    st.error("Please fill in both Student ID and Name.")
                 else:
-                    students_worksheet.append_row(
-                        [str(student_id), name, department, academic_year]
-                    )
-                    
-                    # ক্যাশ ক্লিয়ার করা
-                    st.cache_data.clear()
-                    
-                    st.success(
-                        f"Student {name} (ID: {student_id}, {academic_year}) successfully added!"
-                    )
+                    if (
+                        not df_students.empty
+                        and "Student ID" in df_students.columns
+                        and str(student_id) in df_students["Student ID"].astype(str).values
+                    ):
+                        st.error(f"Student ID '{student_id}' already exists!")
+                    else:
+                        students_worksheet.append_row(
+                            [str(student_id), name, department, academic_year]
+                        )
+                        st.cache_data.clear()
+                        st.success(
+                            f"Student {name} (ID: {student_id}, {academic_year}) successfully added!"
+                        )
 
+    # --- অপশন ২: এক্সেল বা CSV ফাইল আপলোড করে এক ক্লিকে রেজিস্ট্রেশন ---
+    elif reg_option == "Bulk Upload via Excel / CSV":
+        st.subheader(" Bulk Upload Students via Excel / CSV")
+        st.info(
+            "আপনার এক্সেল/সিএসভি ফাইলে অবশ্যই এই ৪টি কলাম থাকতে হবে: **Student ID**, **Name**, **Session**, **Academic Year**"
+        )
+
+        uploaded_file = st.file_uploader(
+            "Upload Excel or CSV File", type=["xlsx", "xls", "csv"]
+        )
+
+        if uploaded_file is not None:
+            try:
+                # ফাইল টাইপ অনুযায়ী রিড করা
+                if uploaded_file.name.endswith(".csv"):
+                    new_df = pd.read_csv(uploaded_file)
+                else:
+                    new_df = pd.read_excel(uploaded_file)
+
+                # কলাম হেডার ক্লিন করা
+                new_df.columns = new_df.columns.str.strip()
+
+                required_cols = ["Student ID", "Name", "Session", "Academic Year"]
+                missing_cols = [col for col in required_cols if col not in new_df.columns]
+
+                if missing_cols:
+                    st.error(f"❌ আপনার এক্সেল ফাইলে নিচের কলামগুলো অনুপস্থিত: {', '.join(missing_cols)}")
+                else:
+                    # ফাইল থেকে প্রয়োজনীয় কলাম ফিল্টার করা ও স্ট্রিং-এ কনভার্ট করা
+                    new_df = new_df[required_cols].dropna(subset=["Student ID", "Name"])
+                    new_df["Student ID"] = new_df["Student ID"].astype(str).str.strip()
+                    new_df["Name"] = new_df["Name"].astype(str).str.strip()
+                    new_df["Session"] = new_df["Session"].astype(str).str.strip()
+                    new_df["Academic Year"] = new_df["Academic Year"].astype(str).str.strip()
+
+                    # আপলোড করা ডেটা প্রিভিউ দেখানো
+                    st.write("###  Uploaded Data Preview:")
+                    st.dataframe(new_df, use_container_width=True)
+
+                    if st.button(" Import All Students to Google Sheets", type="primary"):
+                        existing_ids = []
+                        if not df_students.empty and "Student ID" in df_students.columns:
+                            existing_ids = df_students["Student ID"].astype(str).str.strip().tolist()
+
+                        # ডুপ্লিকেট বাদ দিয়ে নতুন স্টুডেন্ট ফিল্টার করা
+                        filtered_new_df = new_df[~new_df["Student ID"].isin(existing_ids)]
+                        duplicate_count = len(new_df) - len(filtered_new_df)
+
+                        if filtered_new_df.empty:
+                            st.warning(" আপলোড করা এক্সেল ফাইলের সকল স্টুডেন্ট আইডি আগেই গুগল শিটে বিদ্যমান আছে!")
+                        else:
+                            # গুগল শিটে অ্যাপেন্ড করার জন্য লিস্ট তৈরি
+                            rows_to_append = filtered_new_df.values.tolist()
+                            students_worksheet.append_rows(rows_to_append)
+
+                            st.cache_data.clear()
+
+                            st.success(f"  সফলভাবে **{len(filtered_new_df)}** জন নতুন শিক্ষার্থী যুক্ত করা হয়েছে!")
+                            if duplicate_count > 0:
+                                st.info(f"  {duplicate_count} জন স্টুডেন্ট আইডি আগের ডাটাবেজে ছিল বলে বাদ দেওয়া হয়েছে (Duplicate avoidance)।")
+                            st.rerun()
+
+            except Exception as e:
+                st.error(f"Error processing file: {e}")
 # -------------------------------------------------------------
 # 3. VIEW RECORDS & ANALYTICS
 # -------------------------------------------------------------
@@ -424,7 +495,7 @@ elif menu == "Manage Students":
             "No students registered yet or missing 'Student ID' column header in Google Sheets."
         )
     else:
-        st.subheader("🔍 Bulk Promote Selected Students")
+        st.subheader(" Bulk Promote Selected Students")
         st.info("যে শিক্ষার্থীদের প্রমোট করতে চান তাদের বামপাশের বাক্সে টিক (Check mark) দিন এবং নিচে Target Year সিলেক্ট করে **'Promote Selected Students'** বাটনে চাপ দিন।")
 
         # ১. ইয়ার ওয়াইজ ফিল্টার
@@ -528,7 +599,7 @@ elif menu == "Manage Students":
                 # একক বাটন চাপার পর একসাথে আপডেট হওয়া
                 if submit_promote:
                     if not selected_student_ids:
-                        st.warning("⚠️ অনুগ্রহ করে অন্তত একজন স্টুডেন্ট সিলেক্ট করুন যাকে প্রমোট করতে চান।")
+                        st.warning(" অনুগ্রহ করে অন্তত একজন স্টুডেন্ট সিলেক্ট করুন যাকে প্রমোট করতে চান।")
                     else:
                         # সিলেক্ট করা স্টুডেন্টদের নতুন ইয়ারে সেট করা
                         df_students.loc[
@@ -545,7 +616,7 @@ elif menu == "Manage Students":
                             # ক্যাশ ক্লিয়ার করা
                             st.cache_data.clear()
                             
-                            st.success(f"🎉 Successfully promoted {len(selected_student_ids)} student(s) to **{promote_to_year}**!")
+                            st.success(f" Successfully promoted {len(selected_student_ids)} student(s) to **{promote_to_year}**!")
                             st.rerun()
                         except Exception as e:
                             st.error(f"Error updating Google Sheets: {e}")
@@ -553,7 +624,7 @@ elif menu == "Manage Students":
         st.markdown("---")
 
         # ৩. Delete Student Section
-        st.subheader("🗑️️ Delete a Student")
+        st.subheader(" Delete a Student")
         del_id = st.selectbox(
             "Select Student ID to remove",
             df_students["Student ID"].astype(str).values,
