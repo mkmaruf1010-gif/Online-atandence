@@ -328,7 +328,7 @@ elif menu == "Register Student":
                         )
 
     # --- অপশন ২: এক্সেল বা CSV ফাইল আপলোড করে এক ক্লিকে রেজিস্ট্রেশন ---
-    elif reg_option == "Bulk Upload via Excel / CSV":
+    elif reg_option == " Upload via Excel / CSV":
         st.subheader(" Bulk Upload Students via Excel / CSV")
         st.info(
             "আপনার এক্সেল/সিএসভি ফাইলে অবশ্যই এই ৪টি কলাম থাকতে হবে: **Student ID**, **Name**, **Session**, **Academic Year**"
