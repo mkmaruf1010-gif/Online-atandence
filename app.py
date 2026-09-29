@@ -483,10 +483,10 @@ elif menu == "View Records":
         )
 
 # -------------------------------------------------------------
-# 4. MANAGE STUDENTS (WITH MANDATORY YEAR SELECTION & MULTI-SELECT PROMOTION)
+# 4. MANAGE STUDENTS (PROMOTION & DELETE TOGETHER)
 # -------------------------------------------------------------
 elif menu == "Manage Students":
-    st.header("Student Directory & Promotion")
+    st.header("Student Directory & Management")
 
     df_students = load_students()
 
@@ -495,7 +495,10 @@ elif menu == "Manage Students":
             "No students registered yet or missing 'Student ID' column header in Google Sheets."
         )
     else:
-        st.subheader(" Promote Selected Students")
+        # =========================================================
+        # পার্ট ১: BULK PROMOTION SECTION
+        # =========================================================
+        st.subheader(" Bulk Promote Selected Students")
 
         # ১. বাধ্যতামূলক ইয়ার ফিল্টার (ডিফল্টভাবে ফাঁকা থাকবে)
         raw_years = (
@@ -504,23 +507,21 @@ elif menu == "Manage Students":
             else ["1st Year", "2nd Year", "3rd Year", "4th Year"]
         )
         
-        # ড্রপডাউনের প্রথম অপশন "-- Select Academic Year --"
         filter_options = ["-- Select Academic Year --"] + raw_years
         selected_filter_year = st.selectbox(
-            "Filter Students by Academic Year", 
+            "Filter Students by Academic Year to Promote", 
             filter_options,
             index=0
         )
 
-        # যতক্ষণ পর্যন্ত ইয়ার সিলেক্ট না করা হবে
+        # ইয়ার সিলেক্ট না করা পর্যন্ত মেসেজ দেখাবে
         if selected_filter_year == "-- Select Academic Year --":
-            st.info(" অনুগ্রহ করে স্টুডেন্ট লিস্ট দেখতে এবং প্রমোট করতে উপরে একটি **Academic Year** সিলেক্ট করুন।")
+            st.info(" প্রমোট করার জন্য স্টুডেন্ট লিস্ট দেখতে উপরে একটি **Academic Year** সিলেক্ট করুন।")
         else:
             filtered_df = df_students[df_students["Academic Year"] == selected_filter_year].copy()
 
             st.write(f"Showing **{len(filtered_df)}** student(s) for **{selected_filter_year}**")
 
-            # ২. স্টুডেন্ট লিস্ট এবং প্রমোশন ফর্ম
             if filtered_df.empty:
                 st.warning(f"No students found for {selected_filter_year}.")
             else:
@@ -532,7 +533,7 @@ elif menu == "Manage Students":
                 }
 
                 with st.form("bulk_promotion_form"):
-                    # হেডার কলাম
+                    # লিস্ট হেডার
                     h_col1, h_col2, h_col3, h_col4, h_col5 = st.columns([1, 2, 3, 2, 2])
                     with h_col1:
                         st.markdown("**Select**")
@@ -549,7 +550,7 @@ elif menu == "Manage Students":
 
                     selected_student_ids = []
 
-                    # নির্দিষ্ট ইয়ারের স্টুডেন্টদের লিস্ট দেখানো
+                    # স্টুডেন্ট রো
                     for index, row in filtered_df.iterrows():
                         s_id = str(row["Student ID"]).strip()
                         s_name = str(row["Name"]).strip()
@@ -579,7 +580,7 @@ elif menu == "Manage Students":
 
                     st.markdown("---")
 
-                    # প্রমোশনের টার্গেট ইয়ার সিলেক্ট করা (অটোমেটিক পরবর্তী ইয়ার ক্যাচ করবে)
+                    # টার্গেট ইয়ার ও প্রমোট বাটন
                     col_target, col_btn = st.columns([2, 2])
                     with col_target:
                         default_target = year_map.get(selected_filter_year, "2nd Year")
@@ -595,11 +596,11 @@ elif menu == "Manage Students":
                     with col_btn:
                         st.write("")
                         st.write("")
-                        submit_promote = st.form_submit_button("🎓 Promote Selected Students", type="primary", use_container_width=True)
+                        submit_promote = st.form_submit_button(" Promote Selected Students", type="primary", use_container_width=True)
 
                     if submit_promote:
                         if not selected_student_ids:
-                            st.warning("  অনুগ্রহ করে অন্তত একজন স্টুডেন্ট সিলেক্ট করুন যাকে প্রমোট করতে চান।")
+                            st.warning(" অনুগ্রহ করে অন্তত একজন স্টুডেন্ট সিলেক্ট করুন যাকে প্রমোট করতে চান।")
                         else:
                             df_students.loc[
                                 df_students["Student ID"].astype(str).str.strip().isin(selected_student_ids),
@@ -617,12 +618,14 @@ elif menu == "Manage Students":
                             except Exception as e:
                                 st.error(f"Error updating Google Sheets: {e}")
 
-       st.markdown("---")
+        # =========================================================
+        # পার্ট ২: DELETE STUDENT SECTION (SEARCH & PREVIEW)
+        # =========================================================
+        st.markdown("---")
         st.subheader(" Delete a Student")
         
-        # ১. রোল/আইডি ইনপুট নেওয়া
         del_id_input = st.text_input(
-            "Enter Student ID / Roll to Search", 
+            "Enter Student ID / Roll to Search for Deletion", 
             placeholder="e.g., 210101",
             key="del_search_input"
         )
@@ -630,13 +633,12 @@ elif menu == "Manage Students":
         clean_del_id = del_id_input.strip()
 
         if clean_del_id:
-            # গুগল শিট ডেটাফ্রেমে আইডি সার্চ করা
+            # গুগল শিটের ডেটায় অনুসন্ধান
             matched_student = df_students[
                 df_students["Student ID"].astype(str).str.strip() == clean_del_id
             ]
 
             if not matched_student.empty:
-                # স্টুডেন্টের তথ্য বের করা
                 student_info = matched_student.iloc[0]
                 s_id = str(student_info["Student ID"]).strip()
                 s_name = str(student_info["Name"]).strip()
@@ -645,12 +647,12 @@ elif menu == "Manage Students":
 
                 st.success(" Student Found!")
 
-                # কার্ড/কন্টেইনারের মধ্যে স্টুডেন্টের বিবরণ দেখানো
+                # কার্ড আকারে প্রিভিউ
                 with st.container():
                     st.markdown(
                         f"""
-                        <div style="border:1px solid #ddd; padding: 15px; border-radius: 8px; background-color: #f9f9f9; margin-bottom: 15px;">
-                            <h4 style="margin-top:0; color: #333;"> Student Details Preview</h4>
+                        <div style="border:1px solid #ff4b4b; padding: 15px; border-radius: 8px; background-color: #fff5f5; margin-bottom: 15px;">
+                            <h4 style="margin-top:0; color: #ff4b4b;">👤 Student Details Preview</h4>
                             <p><b>Student ID / Roll:</b> {s_id}</p>
                             <p><b>Name:</b> {s_name}</p>
                             <p><b>Session:</b> {s_session}</p>
@@ -660,23 +662,22 @@ elif menu == "Manage Students":
                         unsafe_allow_html=True
                     )
 
-                # নিশ্চিতকরণ সতর্কবার্তা ও ডিলিট বাটন
-                st.warning(f"  Are you sure you want to delete **{s_name}** (ID: {s_id}) permanently?")
+                st.warning(f" Are you sure you want to delete **{s_name}** (ID: {s_id}) permanently?")
                 
-                if st.button("  Confirm Delete Student", type="primary"):
+                if st.button(" Confirm Delete Student", type="primary"):
                     try:
                         cell = students_worksheet.find(s_id)
                         if cell:
                             students_worksheet.delete_rows(cell.row)
                             st.cache_data.clear()
-                            st.success(f"  Student ID '{s_id}' ({s_name}) has been deleted successfully!")
+                            st.success(f" Student ID '{s_id}' ({s_name}) has been deleted successfully!")
                             st.rerun()
                         else:
                             st.error("Student ID cell could not be located in Google Sheets.")
                     except Exception as e:
                         st.error(f"Error deleting student: {e}")
             else:
-                st.error(f"  No student found with ID/Roll: '{clean_del_id}'")
+                st.error(f" No student found with ID/Roll: '{clean_del_id}'")
 # -------------------------------------------------------------
 # 5. STUDENT PERCENTAGE CHECKER
 # -------------------------------------------------------------
