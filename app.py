@@ -651,8 +651,8 @@ elif menu == "Manage Students":
                 with st.container():
                     st.markdown(
                         f"""
-                        <div style="border:1px solid #ff4b4b; padding: 15px; border-radius: 8px; background-color: #fff5f5; margin-bottom: 15px;">
-                            <h4 style="margin-top:0; color: #ff4b4b;">👤 Student Details Preview</h4>
+                        <div style="border:1px solid #ff4b4b; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+                            <h4 style="margin-top:0; color: #ff4b4b;"> Student Details Preview</h4>
                             <p><b>Student ID / Roll:</b> {s_id}</p>
                             <p><b>Name:</b> {s_name}</p>
                             <p><b>Session:</b> {s_session}</p>
