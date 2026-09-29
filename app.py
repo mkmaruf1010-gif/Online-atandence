@@ -395,100 +395,100 @@ elif menu == "Register Student":
 # 3. VIEW RECORDS & ANALYTICS
 # -------------------------------------------------------------
 elif menu == "View Records":
-    st.header("Attendance Records & Reports")
+    st.header("View Records & Reports")
 
-  df_attendance = load_attendance()
-df_students = load_students()
+    df_attendance = load_attendance()
+    df_students = load_students()
 
-if df_attendance.empty or "Date" not in df_attendance.columns:
-    st.info("No attendance records found yet.")
-else:
-    filter_col1, filter_col2, filter_col3 = st.columns(3)
+    if df_attendance.empty or "Date" not in df_attendance.columns:
+        st.info("No attendance records found yet.")
+    else:
+        filter_col1, filter_col2, filter_col3 = st.columns(3)
 
-    with filter_col1:
-        academic_years = ["All Years"]
-        if not df_students.empty and "Academic Year" in df_students.columns:
-            academic_years += df_students["Academic Year"].dropna().unique().tolist()
+        with filter_col1:
+            academic_years = ["All Years"]
+            if not df_students.empty and "Academic Year" in df_students.columns:
+                academic_years += df_students["Academic Year"].dropna().unique().tolist()
 
-        selected_year = st.selectbox(
-            "Filter by Academic Year", academic_years, key="view_year"
-        )
-
-    with filter_col2:
-        unique_dates = df_attendance["Date"].unique().tolist()
-        selected_date = st.selectbox(
-            "Filter by Date", ["All Dates"] + unique_dates, key="view_date"
-        )
-
-    with filter_col3:
-        sort_by = st.selectbox(
-            "Sort / Filter Status:",
-            ["All Records", "Present Only", "Absent Only", "Date (Newest First)", "Date (Oldest First)", "Student ID"],
-            key="view_sort"
-        )
-
-    filtered_df = df_attendance.copy()
-    if not df_students.empty and "Academic Year" in df_students.columns:
-        if "Academic Year" not in filtered_df.columns:
-            filtered_df = filtered_df.merge(
-                df_students[["Student ID", "Academic Year"]],
-                on="Student ID",
-                how="left"
+            selected_year = st.selectbox(
+                "Filter by Academic Year", academic_years, key="view_year"
             )
 
-    if selected_year != "All Years" and "Academic Year" in filtered_df.columns:
-        filtered_df = filtered_df[filtered_df["Academic Year"] == selected_year]
+        with filter_col2:
+            unique_dates = df_attendance["Date"].unique().tolist()
+            selected_date = st.selectbox(
+                "Filter by Date", ["All Dates"] + unique_dates, key="view_date"
+            )
 
-    if selected_date != "All Dates":
-        filtered_df = filtered_df[filtered_df["Date"] == selected_date]
+        with filter_col3:
+            sort_by = st.selectbox(
+                "Sort / Filter Status:",
+                ["All Records", "Present Only", "Absent Only", "Date (Newest First)", "Date (Oldest First)", "Student ID"],
+                key="view_sort"
+            )
 
-    # Status Filtering (Present / Absent)
-    if sort_by == "Present Only" and "Status" in filtered_df.columns:
-        filtered_df = filtered_df[filtered_df["Status"].astype(str).str.lower() == "present"]
-    elif sort_by == "Absent Only" and "Status" in filtered_df.columns:
-        filtered_df = filtered_df[filtered_df["Status"].astype(str).str.lower() == "absent"]
+        filtered_df = df_attendance.copy()
+        if not df_students.empty and "Academic Year" in df_students.columns:
+            if "Academic Year" not in filtered_df.columns:
+                filtered_df = filtered_df.merge(
+                    df_students[["Student ID", "Academic Year"]],
+                    on="Student ID",
+                    how="left"
+                )
 
-    # Date Sorting
-    if "Date" in filtered_df.columns:
-        try:
-            filtered_df["_temp_date"] = pd.to_datetime(filtered_df["Date"])
-            if sort_by == "Date (Newest First)":
-                filtered_df = filtered_df.sort_values(by="_temp_date", ascending=False)
-            elif sort_by == "Date (Oldest First)":
-                filtered_df = filtered_df.sort_values(by="_temp_date", ascending=True)
-            filtered_df = filtered_df.drop(columns=["_temp_date"])
-        except Exception:
-            pass
+        if selected_year != "All Years" and "Academic Year" in filtered_df.columns:
+            filtered_df = filtered_df[filtered_df["Academic Year"] == selected_year]
 
-    # Student ID Sorting
-    if sort_by == "Student ID" and "Student ID" in filtered_df.columns:
-        try:
-            filtered_df["_temp_id"] = pd.to_numeric(filtered_df["Student ID"])
-            filtered_df = filtered_df.sort_values(by="_temp_id", ascending=True).drop(columns=["_temp_id"])
-        except Exception:
-            filtered_df = filtered_df.sort_values(by="Student ID", ascending=True)
+        if selected_date != "All Dates":
+            filtered_df = filtered_df[filtered_df["Date"] == selected_date]
 
-    total_records = len(filtered_df)
-    present_count = len(
-        filtered_df[filtered_df["Status"].astype(str).str.lower() == "present"]
-    ) if "Status" in filtered_df.columns else 0
-    absent_count = total_records - present_count
+        # Status Filtering (Present / Absent)
+        if sort_by == "Present Only" and "Status" in filtered_df.columns:
+            filtered_df = filtered_df[filtered_df["Status"].astype(str).str.lower() == "present"]
+        elif sort_by == "Absent Only" and "Status" in filtered_df.columns:
+            filtered_df = filtered_df[filtered_df["Status"].astype(str).str.lower() == "absent"]
 
-    st.markdown("---")
-    m_col1, m_col2, m_col3 = st.columns(3)
-    m_col1.metric("Total Records", total_records)
-    m_col2.metric("Present", present_count)
-    m_col3.metric("Absent", absent_count)
+        # Date Sorting
+        if "Date" in filtered_df.columns:
+            try:
+                filtered_df["_temp_date"] = pd.to_datetime(filtered_df["Date"])
+                if sort_by == "Date (Newest First)":
+                    filtered_df = filtered_df.sort_values(by="_temp_date", ascending=False)
+                elif sort_by == "Date (Oldest First)":
+                    filtered_df = filtered_df.sort_values(by="_temp_date", ascending=True)
+                filtered_df = filtered_df.drop(columns=["_temp_date"])
+            except Exception:
+                pass
 
-    st.dataframe(filtered_df, use_container_width=True)
+        # Student ID Sorting
+        if sort_by == "Student ID" and "Student ID" in filtered_df.columns:
+            try:
+                filtered_df["_temp_id"] = pd.to_numeric(filtered_df["Student ID"])
+                filtered_df = filtered_df.sort_values(by="_temp_id", ascending=True).drop(columns=["_temp_id"])
+            except Exception:
+                filtered_df = filtered_df.sort_values(by="Student ID", ascending=True)
 
-    csv = filtered_df.to_csv(index=False).encode("utf-8")
-    st.download_button(
-        label="Download Attendance as CSV",
-        data=csv,
-        file_name=f"attendance_report_{selected_year}_{selected_date}.csv",
-        mime="text/csv",
-    )
+        total_records = len(filtered_df)
+        present_count = len(
+            filtered_df[filtered_df["Status"].astype(str).str.lower() == "present"]
+        ) if "Status" in filtered_df.columns else 0
+        absent_count = total_records - present_count
+
+        st.markdown("---")
+        m_col1, m_col2, m_col3 = st.columns(3)
+        m_col1.metric("Total Records", total_records)
+        m_col2.metric("Present", present_count)
+        m_col3.metric("Absent", absent_count)
+
+        st.dataframe(filtered_df, use_container_width=True)
+
+        csv = filtered_df.to_csv(index=False).encode("utf-8")
+        st.download_button(
+            label="Download Attendance as CSV",
+            data=csv,
+            file_name=f"attendance_report_{selected_year}_{selected_date}.csv",
+            mime="text/csv",
+        )
 # -------------------------------------------------------------
 # 4. MANAGE STUDENTS (PROMOTION & DELETE TOGETHER)
 # -------------------------------------------------------------
