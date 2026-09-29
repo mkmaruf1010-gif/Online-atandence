@@ -424,11 +424,8 @@ elif menu == "View Records":
             sort_by = st.selectbox(
                 "Sort Records by:",
                 [
-                    "Student ID",
                     "Present Only",
-                    "Absent Only",
-                    "Date (Newest First)",
-                    "Date (Oldest First)"
+                    "Absent Only"
                 ],
                 key="view_sort"
             )
