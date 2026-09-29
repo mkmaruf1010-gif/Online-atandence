@@ -423,7 +423,13 @@ elif menu == "View Records":
         with filter_col3:
             sort_by = st.selectbox(
                 "Sort Records by:",
-                ["Student ID", "Date (Newest First)", "Date (Oldest First)"],
+                [
+                    "Student ID",
+                    "Present Only",
+                    "Absent Only",
+                    "Date (Newest First)",
+                    "Date (Oldest First)"
+                ],
                 key="view_sort"
             )
 
@@ -442,19 +448,25 @@ elif menu == "View Records":
         if selected_date != "All Dates":
             filtered_df = filtered_df[filtered_df["Date"] == selected_date]
 
-        # শুধু উপস্থিত (Present) ক্লাস গণনা করার জন্য লজিক
+        # শুধু উপস্থিত (Present) ক্লাস গণনা
         if "Status" in filtered_df.columns:
             filtered_df["Is_Present"] = filtered_df["Status"].astype(str).str.strip().str.lower() == "present"
         else:
             filtered_df["Is_Present"] = False
 
-        # Student ID, Name এবং Date অনুযায়ী গ্রুপ করে টোটাল ক্লাসের সংখ্যা হিসাব
+        # Groupby করে মোট কয়টা ক্লাসে উপস্থিত তা নির্ধারণ
         group_cols = ["Date", "Student ID", "Name"]
         summary_df = (
             filtered_df.groupby(group_cols, as_index=False)["Is_Present"]
             .sum()
             .rename(columns={"Is_Present": "Total Classes Attended"})
         )
+
+        # Present / Absent Filter
+        if sort_by == "Present Only":
+            summary_df = summary_df[summary_df["Total Classes Attended"] > 0]
+        elif sort_by == "Absent Only":
+            summary_df = summary_df[summary_df["Total Classes Attended"] == 0]
 
         # Sorting লজিক
         if sort_by == "Student ID":
@@ -476,8 +488,8 @@ elif menu == "View Records":
             except Exception:
                 pass
 
-        total_students = len(summary_df["Student ID"].unique())
-        total_attended_classes = summary_df["Total Classes Attended"].sum()
+        total_students = len(summary_df["Student ID"].unique()) if not summary_df.empty else 0
+        total_attended_classes = summary_df["Total Classes Attended"].sum() if not summary_df.empty else 0
 
         st.markdown("---")
         m_col1, m_col2 = st.columns(2)
