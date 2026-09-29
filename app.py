@@ -423,7 +423,7 @@ elif menu == "View Records":
         with filter_col3:
             sort_by = st.selectbox(
                 "Sort Records by:",
-                ["Date (Newest First)", "Date (Oldest First)", "Student ID"],
+                ["Date (Newest First)", "Date (Oldest First)", "Student ID", "Academic Year"],
                 key="view_sort"
             )
 
