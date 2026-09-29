@@ -41,6 +41,9 @@ except Exception as e:
     st.stop()
 
 
+# --- CACHED DATA LOADING FUNCTIONS (Rate Limit / API Quota Error 429 রোধ করার জন্য) ---
+
+@st.cache_data(ttl=60)
 def load_students():
     data = students_worksheet.get_all_records()
     df = pd.DataFrame(data)
@@ -49,6 +52,7 @@ def load_students():
     return df
 
 
+@st.cache_data(ttl=60)
 def load_attendance():
     data = attendance_worksheet.get_all_records()
     df = pd.DataFrame(data)
@@ -57,7 +61,7 @@ def load_attendance():
     return df
 
 
-# Google Sheet-এর 'Courses' ট্যাব থেকে ডাইনামিকালি কোর্স লোড করার ফাংশন
+@st.cache_data(ttl=60)
 def load_courses():
     try:
         courses_worksheet = sheet.worksheet("Courses")
@@ -67,12 +71,12 @@ def load_courses():
             df.columns = df.columns.str.strip()
         return df
     except Exception:
-        # যদি Courses নামের শিট খুঁজে না পাওয়া যায়
         return pd.DataFrame()
 
 
 st.title("OASIS")
 st.markdown("---")
+
 # Sidebar Navigation
 menu = st.sidebar.selectbox(
     "Navigation",
@@ -111,9 +115,8 @@ if menu in protected_pages:
                 st.rerun()
             else:
                 st.error("Incorrect password. Access denied.")
-        st.stop()  # Stop execution here until authenticated
+        st.stop()
     else:
-        # Option to log out / lock again from sidebar or page
         if st.sidebar.button("Lock Admin Session"):
             st.session_state.authenticated = False
             st.rerun()
@@ -121,7 +124,6 @@ if menu in protected_pages:
 # -------------------------------------------------------------
 # 1. MARK ATTENDANCE
 # -------------------------------------------------------------
-
 if menu == "Mark Attendance":
     st.header("Mark Daily Attendance")
 
@@ -133,7 +135,6 @@ if menu == "Mark Attendance":
             "No students found or missing 'Student ID' column in the 'Students' sheet! Please check your Google Sheet headers: [Student ID, Name, Session, Academic Year]."
         )
     else:
-        # একাডেমিক ইয়ারের তালিকা তৈরি (প্রথম অপশনটি খালি রাখা হয়েছে)
         raw_years = (
             df_students["Academic Year"].unique().tolist()
             if "Academic Year" in df_students.columns
@@ -145,11 +146,9 @@ if menu == "Mark Attendance":
             "Select Academic Year to Mark", academic_years, index=0
         )
 
-        # যদি ইউজার কোনো একাডেমিক ইয়ার সিলেক্ট না করে
         if selected_year == "-- Select Academic Year --":
-            st.info(" Please select an Academic Year above to display courses and student list.")
+            st.info("👆 Please select an Academic Year above to display courses and student list.")
         else:
-            # সিলেক্ট করা ইয়ারের ওপর ভিত্তি করে গুগল শিট থেকে কোর্স লোড করা
             available_courses = []
             if not df_courses.empty and "Academic Year" in df_courses.columns and "Course Title" in df_courses.columns:
                 filtered_courses = df_courses[
@@ -157,7 +156,6 @@ if menu == "Mark Attendance":
                 ]
                 available_courses = filtered_courses["Course Title"].dropna().tolist()
 
-            # যদি শিটে কোনো কোর্স না পাওয়া যায়
             if not available_courses:
                 available_courses = ["General Course"]
 
@@ -174,7 +172,6 @@ if menu == "Mark Attendance":
             st.markdown(f"### Student List for {selected_year} - {selected_course}")
             st.info("Check the box next to the student if they are **Present**. (Unchecked means **Absent**)")
 
-            # স্টুডেন্ট আইডি সর্টিং ড্রপডাউন
             sort_order = st.selectbox(
                 "Sort Student ID by:",
                 ["Ascending (Low to High)", "Descending (High to Low)"],
@@ -201,7 +198,6 @@ if menu == "Mark Attendance":
                 with st.form("attendance_form"):
                     attendance_status = {}
 
-                    # টেবিলের হেডার কলাম
                     h_col1, h_col2, h_col3, h_col4 = st.columns([1, 2, 3, 2])
                     with h_col1:
                         st.markdown("**Status**")
@@ -225,7 +221,6 @@ if menu == "Mark Attendance":
 
                         col1, col2, col3, col4 = st.columns([1, 2, 3, 2])
                         with col1:
-                            # টিক দেওয়া থাকলে Present, না দেওয়া থাকলে Absent হিসেবে গণ্য হবে
                             is_present = st.checkbox(
                                 "Present",
                                 value=False,
@@ -239,7 +234,6 @@ if menu == "Mark Attendance":
                         with col4:
                             st.write(f"{s_session}")
 
-                        # Present/Absent স্ট্যাটাস ডিকশনারিতে রাখা হচ্ছে
                         attendance_status[s_id] = {
                             "Name": s_name,
                             "Status": "Present" if is_present else "Absent",
@@ -251,7 +245,6 @@ if menu == "Mark Attendance":
                     if submitted:
                         df_attendance = load_attendance()
 
-                        # হেডার ঠিক রাখা
                         if not df_attendance.empty and "Date" in df_attendance.columns:
                             rows_to_save = [
                                 df_attendance.columns.tolist()
@@ -259,7 +252,6 @@ if menu == "Mark Attendance":
                         else:
                             rows_to_save = [["Date", "Course", "Student ID", "Name", "Status"]]
 
-                        # সকল স্টুডেন্টের (Present ও Absent) এন্ট্রি যুক্ত করা
                         for s_id, data in attendance_status.items():
                             rows_to_save.append(
                                 [
@@ -271,11 +263,14 @@ if menu == "Mark Attendance":
                                 ]
                             )
 
-                        # Sheets-এ নতুন ডাটা আপডেট
                         attendance_worksheet.clear()
                         attendance_worksheet.update(rows_to_save)
+                        
+                        # ক্যাশ ক্লিয়ার করা
+                        st.cache_data.clear()
+                        
                         st.success(
-                            f"Attendance successfully saved to Google Sheets for {selected_course} on {att_date}! (Present & Absent entries recorded)"
+                            f"Attendance successfully saved to Google Sheets for {selected_course} on {att_date}!"
                         )
 
 # -------------------------------------------------------------
@@ -290,25 +285,8 @@ elif menu == "Register Student":
         department = st.selectbox(
             "Session",
             [
-                "2021-22",
-                "2022-23",
-                "2023-24",
-                "2024-25",
-                "2025-26",
-                "2026-27",
-                "2027-28",
-                "2028-29",
-                "2029-30",
-                "2030-31",
-                "2031-32",
-                "2032-33",
-                "2033-34",
-                "2034-35",
-                "2035-36",
-                "2036-37",
-                "2037-38",
-                "2038-39",
-                "2039-40",
+                "2021-22", "2022-23", "2023-24", "2024-25", "2025-26",
+                "2026-27", "2027-28", "2028-29", "2029-30", "2030-31"
             ],
         )
         academic_year = st.selectbox(
@@ -334,6 +312,10 @@ elif menu == "Register Student":
                     students_worksheet.append_row(
                         [str(student_id), name, department, academic_year]
                     )
+                    
+                    # ক্যাশ ক্লিয়ার করা
+                    st.cache_data.clear()
+                    
                     st.success(
                         f"Student {name} (ID: {student_id}, {academic_year}) successfully added!"
                     )
@@ -350,10 +332,8 @@ elif menu == "View Records":
     if df_attendance.empty or "Date" not in df_attendance.columns:
         st.info("No attendance records found yet.")
     else:
-        # Filter Columns (Academic Year & Date)
         filter_col1, filter_col2, filter_col3 = st.columns(3)
 
-        # 1. Academic Year Filter
         with filter_col1:
             academic_years = ["All Years"]
             if not df_students.empty and "Academic Year" in df_students.columns:
@@ -363,14 +343,12 @@ elif menu == "View Records":
                 "Filter by Academic Year", academic_years, key="view_year"
             )
 
-        # 2. Date Filter
         with filter_col2:
             unique_dates = df_attendance["Date"].unique().tolist()
             selected_date = st.selectbox(
                 "Filter by Date", ["All Dates"] + unique_dates, key="view_date"
             )
 
-        # 3. Sort Order Box
         with filter_col3:
             sort_by = st.selectbox(
                 "Sort Records by:",
@@ -378,7 +356,6 @@ elif menu == "View Records":
                 key="view_sort"
             )
 
-        # Merge Student Year info if missing in attendance sheet
         filtered_df = df_attendance.copy()
         if not df_students.empty and "Academic Year" in df_students.columns:
             if "Academic Year" not in filtered_df.columns:
@@ -388,15 +365,12 @@ elif menu == "View Records":
                     how="left"
                 )
 
-        # Apply Year Filter
         if selected_year != "All Years" and "Academic Year" in filtered_df.columns:
             filtered_df = filtered_df[filtered_df["Academic Year"] == selected_year]
 
-        # Apply Date Filter
         if selected_date != "All Dates":
             filtered_df = filtered_df[filtered_df["Date"] == selected_date]
 
-        # Apply Sorting
         if "Date" in filtered_df.columns:
             try:
                 filtered_df["_temp_date"] = pd.to_datetime(filtered_df["Date"])
@@ -415,7 +389,6 @@ elif menu == "View Records":
             except Exception:
                 filtered_df = filtered_df.sort_values(by="Student ID", ascending=True)
 
-        # Metrics Summary
         total_records = len(filtered_df)
         present_count = len(
             filtered_df[filtered_df["Status"].astype(str).str.lower() == "present"]
@@ -428,10 +401,8 @@ elif menu == "View Records":
         m_col2.metric("Present", present_count)
         m_col3.metric("Absent", absent_count)
 
-        # Display Dataframe
         st.dataframe(filtered_df, use_container_width=True)
 
-        # CSV Download Button
         csv = filtered_df.to_csv(index=False).encode("utf-8")
         st.download_button(
             label="Download Attendance as CSV",
@@ -441,10 +412,10 @@ elif menu == "View Records":
         )
 
 # -------------------------------------------------------------
-# 4. MANAGE STUDENTS
+# 4. MANAGE STUDENTS (WITH INDIVIDUAL PROMOTION)
 # -------------------------------------------------------------
 elif menu == "Manage Students":
-    st.header("Student Directory")
+    st.header("Student Directory & Promotion")
 
     df_students = load_students()
 
@@ -455,7 +426,7 @@ elif menu == "Manage Students":
     else:
         st.subheader("🔍 Filter & Individual Student Promotion")
         
-        # ১. ইয়ার ওয়াইজ সার্চ/ফিল্টার
+        # ১. ইয়ার ওয়াইজ ফিল্টার
         raw_years = (
             df_students["Academic Year"].unique().tolist()
             if "Academic Year" in df_students.columns
@@ -466,7 +437,6 @@ elif menu == "Manage Students":
             ["All Years"] + raw_years
         )
 
-        # ফিল্টার প্রয়োগ
         if filter_year != "All Years" and "Academic Year" in df_students.columns:
             filtered_df = df_students[df_students["Academic Year"] == filter_year].copy()
         else:
@@ -474,11 +444,10 @@ elif menu == "Manage Students":
 
         st.write(f"Showing **{len(filtered_df)}** student(s)")
 
-        # ২. ইন্ডিভিজুয়াল প্রমোট বাটন সহ টেবিল গ্রিড
+        # ২. ইন্ডিভিজুয়াল প্রমোট বাটন সহ টেবিল
         if filtered_df.empty:
             st.warning("No students found for the selected Academic Year.")
         else:
-            # হেডার কলাম
             h_col1, h_col2, h_col3, h_col4, h_col5, h_col6 = st.columns([2, 3, 2, 2, 2, 2])
             with h_col1:
                 st.markdown("**Student ID**")
@@ -495,7 +464,6 @@ elif menu == "Manage Students":
 
             st.markdown("---")
 
-            # পরবর্তী ইয়ারের অপশন নির্বাচন
             year_map = {
                 "1st Year": "2nd Year",
                 "2nd Year": "3rd Year",
@@ -520,7 +488,6 @@ elif menu == "Manage Students":
                 with col4:
                     st.write(curr_year)
                 with col5:
-                    # বাই ডিফল্ট পরবর্তী ইয়ার সিলেক্ট করা থাকবে
                     default_next = year_map.get(curr_year, "Graduated")
                     target_year = st.selectbox(
                         "Target Year",
@@ -531,7 +498,6 @@ elif menu == "Manage Students":
                     )
                 with col6:
                     if st.button("Promote 🎓", key=f"btn_promote_{s_id}"):
-                        # ডাটাফ্রেমে নির্দিষ্ট স্টুডেন্টের ইয়ার আপডেট করা
                         df_students.loc[
                             df_students["Student ID"].astype(str).str.strip() == s_id, 
                             "Academic Year"
@@ -542,6 +508,10 @@ elif menu == "Manage Students":
                         try:
                             students_worksheet.clear()
                             students_worksheet.update(rows_to_save)
+                            
+                            # ক্যাশ ক্লিয়ার করা যাতে নতুন আপডেট প্রতিফলিত হয়
+                            st.cache_data.clear()
+                            
                             st.success(f"Updated {s_name} (ID: {s_id}) to {target_year}!")
                             st.rerun()
                         except Exception as e:
@@ -549,7 +519,7 @@ elif menu == "Manage Students":
 
         st.markdown("---")
 
-        # --- ৩. Delete Student Section ---
+        # ৩. Delete Student Section
         st.subheader("🗑️ Delete a Student")
         del_id = st.selectbox(
             "Select Student ID to remove",
@@ -560,10 +530,12 @@ elif menu == "Manage Students":
             cell = students_worksheet.find(str(del_id))
             if cell:
                 students_worksheet.delete_rows(cell.row)
+                st.cache_data.clear()
                 st.success(f"Student ID {del_id} removed from Google Sheets!")
                 st.rerun()
             else:
                 st.error("Student ID not found in sheet.")
+
 # -------------------------------------------------------------
 # 5. STUDENT PERCENTAGE CHECKER
 # -------------------------------------------------------------
@@ -576,7 +548,6 @@ elif menu == "Student Percentage Checker":
     if df_students.empty:
         st.warning("No student records found in 'Students' sheet!")
     else:
-        # Blank ID input box by default
         input_student_id = st.text_input(
             "Enter Your Student ID",
             value="",
@@ -587,7 +558,6 @@ elif menu == "Student Percentage Checker":
         if not input_student_id:
             st.info("Please enter your Student ID above to view your attendance progress.")
         else:
-            # Check if student exists in the student list
             matched_student = df_students[
                 df_students["Student ID"].astype(str).str.strip() == input_student_id
             ]
@@ -597,7 +567,6 @@ elif menu == "Student Percentage Checker":
             else:
                 student_name = matched_student.iloc[0]["Name"]
 
-                # Fetch attendance logs for student
                 filtered_att = df_attendance.copy()
 
                 if not filtered_att.empty and "Student ID" in filtered_att.columns:
@@ -613,7 +582,6 @@ elif menu == "Student Percentage Checker":
 
                 percentage = round((p_count / total_recorded) * 100, 2) if total_recorded > 0 else 0.0
 
-                # Display Individual Student Summary Card & Metrics
                 st.markdown(f"### Progress Summary for: **{student_name}** (ID: {input_student_id})")
 
                 summary_df = pd.DataFrame([{
@@ -632,22 +600,17 @@ elif menu == "Student Percentage Checker":
                 st.progress(float(percentage) / 100)
                 st.write(f"**Total Classes:** {total_recorded} | **Present:** {p_count} | **Absent:** {a_count}")
 
-                # -------------------------------------------------------------
-                # DETAILED DATE-WISE ATTENDANCE LOG TABLE
-                # -------------------------------------------------------------
                 st.markdown("---")
                 st.subheader(" Detailed Date-wise Attendance Logs")
 
                 if st_att.empty:
                     st.info("No detailed class records found for this student.")
                 else:
-                    # Select relevant columns for clear viewing
                     display_cols = [col for col in ["Date", "Course", "Status"] if col in st_att.columns]
 
                     if display_cols:
                         detailed_df = st_att[display_cols].copy()
 
-                        # Sort by date (latest dates first) if Date column exists
                         if "Date" in detailed_df.columns:
                             try:
                                 detailed_df["Date"] = pd.to_datetime(detailed_df["Date"])
