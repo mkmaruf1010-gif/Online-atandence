@@ -498,7 +498,7 @@ elif menu == "Manage Students":
         # =========================================================
         # পার্ট ১: BULK PROMOTION SECTION
         # =========================================================
-        st.subheader(" Bulk Promote Selected Students")
+        st.subheader(" Promote Selected Students")
 
         # ১. বাধ্যতামূলক ইয়ার ফিল্টার (ডিফল্টভাবে ফাঁকা থাকবে)
         raw_years = (
