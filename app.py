@@ -453,71 +453,104 @@ elif menu == "Manage Students":
             "No students registered yet or missing 'Student ID' column header in Google Sheets."
         )
     else:
-        # স্টুডেন্টদের তালিকা দেখানো
-        st.dataframe(df_students, use_container_width=True)
-
-        st.markdown("---")
+        st.subheader("🔍 Filter & Individual Student Promotion")
         
-        # --- ১. Bulk Promote/Update Section ---
-        st.subheader("🎓 Bulk Promote / Update Academic Year")
-        st.info("এই টুলের মাধ্যমে আপনি একটি নির্দিষ্ট সেশনের সকল শিক্ষার্থীকে এক ক্লিকেই পরবর্তী বর্ষে (যেমন: 1st Year থেকে 2nd Year) প্রমোট করতে পারবেন।")
+        # ১. ইয়ার ওয়াইজ সার্চ/ফিল্টার
+        raw_years = (
+            df_students["Academic Year"].unique().tolist()
+            if "Academic Year" in df_students.columns
+            else ["1st Year", "2nd Year", "3rd Year", "4th Year"]
+        )
+        filter_year = st.selectbox(
+            "Filter Students by Academic Year", 
+            ["All Years"] + raw_years
+        )
 
-        if "Session" in df_students.columns and "Academic Year" in df_students.columns:
-            # সেশন এবং ইয়ার সিলেক্ট করার জন্য কলাম
-            col1, col2, col3 = st.columns(3)
-            
-            with col1:
-                available_sessions = df_students["Session"].astype(str).dropna().unique().tolist()
-                selected_session = st.selectbox("Select Session (সেশন)", available_sessions)
-            
-            with col2:
-                current_years = df_students[df_students["Session"].astype(str) == selected_session]["Academic Year"].dropna().unique().tolist()
-                if not current_years:
-                    current_years = ["1st Year", "2nd Year", "3rd Year", "4th Year"]
-                current_year = st.selectbox("Current Academic Year", current_years)
-                
-            with col3:
-                new_year = st.selectbox(
-                    "Promote To (New Year)", 
-                    ["1st Year", "2nd Year", "3rd Year", "4th Year", "Graduated"]
-                )
-            
-            # কতজন স্টুডেন্ট আপডেট হবে তার হিসাব বের করা
-            affected_students = df_students[
-                (df_students["Session"].astype(str) == selected_session) & 
-                (df_students["Academic Year"] == current_year)
-            ]
-            
-            st.write(f"**{len(affected_students)}** students found for **{selected_session}** in **{current_year}**.")
-            
-            # প্রমোট বাটন
-            if len(affected_students) > 0:
-                if st.button("Promote Students", type="primary"):
-                    # ডাটাফ্রেমে নতুন ইয়ার আপডেট করা
-                    df_students.loc[
-                        (df_students["Session"].astype(str) == selected_session) & 
-                        (df_students["Academic Year"] == current_year), 
-                        "Academic Year"
-                    ] = new_year
-                    
-                    # গুগল শিটে সেভ করার জন্য ডাটা প্রস্তুত করা
-                    rows_to_save = [df_students.columns.tolist()] + df_students.values.tolist()
-                    
-                    try:
-                        # গুগল শিটের ডাটা ক্লিয়ার করে নতুন ডাটা বসানো
-                        students_worksheet.clear()
-                        students_worksheet.update(rows_to_save)
-                        st.success(f" Successfully promoted {len(affected_students)} students to {new_year}!")
-                        st.rerun()  # অ্যাপ রিফ্রেশ করা
-                    except Exception as e:
-                        st.error(f"Failed to update Google Sheets: {e}")
+        # ফিল্টার প্রয়োগ
+        if filter_year != "All Years" and "Academic Year" in df_students.columns:
+            filtered_df = df_students[df_students["Academic Year"] == filter_year].copy()
         else:
-            st.warning("Your 'Students' sheet must have 'Session' and 'Academic Year' columns to use this feature.")
+            filtered_df = df_students.copy()
+
+        st.write(f"Showing **{len(filtered_df)}** student(s)")
+
+        # ২. ইন্ডিভিজুয়াল প্রমোট বাটন সহ টেবিল গ্রিড
+        if filtered_df.empty:
+            st.warning("No students found for the selected Academic Year.")
+        else:
+            # হেডার কলাম
+            h_col1, h_col2, h_col3, h_col4, h_col5, h_col6 = st.columns([2, 3, 2, 2, 2, 2])
+            with h_col1:
+                st.markdown("**Student ID**")
+            with h_col2:
+                st.markdown("**Name**")
+            with h_col3:
+                st.markdown("**Session**")
+            with h_col4:
+                st.markdown("**Current Year**")
+            with h_col5:
+                st.markdown("**Promote To**")
+            with h_col6:
+                st.markdown("**Action**")
+
+            st.markdown("---")
+
+            # পরবর্তী ইয়ারের অপশন নির্বাচন
+            year_map = {
+                "1st Year": "2nd Year",
+                "2nd Year": "3rd Year",
+                "3rd Year": "4th Year",
+                "4th Year": "Graduated"
+            }
+
+            for index, row in filtered_df.iterrows():
+                s_id = str(row["Student ID"]).strip()
+                s_name = str(row["Name"]).strip()
+                s_session = str(row.get("Session", "")).strip()
+                curr_year = str(row.get("Academic Year", "1st Year")).strip()
+
+                col1, col2, col3, col4, col5, col6 = st.columns([2, 3, 2, 2, 2, 2])
+                
+                with col1:
+                    st.write(s_id)
+                with col2:
+                    st.write(f"**{s_name}**")
+                with col3:
+                    st.write(s_session)
+                with col4:
+                    st.write(curr_year)
+                with col5:
+                    # বাই ডিফল্ট পরবর্তী ইয়ার সিলেক্ট করা থাকবে
+                    default_next = year_map.get(curr_year, "Graduated")
+                    target_year = st.selectbox(
+                        "Target Year",
+                        ["1st Year", "2nd Year", "3rd Year", "4th Year", "Graduated"],
+                        index=["1st Year", "2nd Year", "3rd Year", "4th Year", "Graduated"].index(default_next),
+                        key=f"target_{s_id}",
+                        label_visibility="collapsed"
+                    )
+                with col6:
+                    if st.button("Promote 🎓", key=f"btn_promote_{s_id}"):
+                        # ডাটাফ্রেমে নির্দিষ্ট স্টুডেন্টের ইয়ার আপডেট করা
+                        df_students.loc[
+                            df_students["Student ID"].astype(str).str.strip() == s_id, 
+                            "Academic Year"
+                        ] = target_year
+
+                        rows_to_save = [df_students.columns.tolist()] + df_students.values.tolist()
+
+                        try:
+                            students_worksheet.clear()
+                            students_worksheet.update(rows_to_save)
+                            st.success(f"Updated {s_name} (ID: {s_id}) to {target_year}!")
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"Error updating Google Sheets: {e}")
 
         st.markdown("---")
 
-        # --- ২. Delete Student Section ---
-        st.subheader(" Delete a Student")
+        # --- ৩. Delete Student Section ---
+        st.subheader("🗑️ Delete a Student")
         del_id = st.selectbox(
             "Select Student ID to remove",
             df_students["Student ID"].astype(str).values,
