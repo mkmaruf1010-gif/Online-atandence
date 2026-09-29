@@ -14,26 +14,26 @@ st.set_page_config(
 st.title("OASIS - Attendance & Student Management System")
 
 # -------------------------------------------------------------
-# 2. GOOGLE SHEETS CONNECTION SETUP
+# 2. GOOGLE SHEETS CONNECTION SETUP (FIXED AUTHENTICATION)
 # -------------------------------------------------------------
 @st.cache_resource
-def init_connection():
-    # Streamlit Secrets থেকে ক্রেডেনশিয়ালস লোড
-    scope = [
-        "https://spreadsheets.google.com/feeds",
-        "https://www.googleapis.com/auth/drive",
+def get_gspread_client():
+    # Streamlit Secrets থেকে ক্রেডেনশিয়ালস ডিকশনারি আকারে আনা
+    credentials_dict = dict(st.secrets["gcp_service_account"])
+    
+    # private_key-এর নতুন লাইন বা \n ফরম্যাটিং ঠিক করা
+    if "private_key" in credentials_dict:
+        credentials_dict["private_key"] = credentials_dict["private_key"].replace("\\n", "\n")
+        
+    scopes = [
+        "https://www.googleapis.com/auth/spreadsheets",
+        "https://www.googleapis.com/auth/drive"
     ]
-    credentials = Credentials.from_service_account_info(
-        st.secrets["gcp_service_account"],
-        scopes=scope
-    )
-    client = gspread.authorize(credentials)
-    return client
+    return gspread.service_account_from_dict(credentials_dict, scopes=scopes)
 
 try:
-    client = init_connection()
-    # আপনার গুগল শিটের নাম
-    spreadsheet = client.open("OASIS_Attendance_DB")
+    gc = get_gspread_client()
+    spreadsheet = gc.open("OASIS_Attendance_DB")
     students_worksheet = spreadsheet.worksheet("Students")
     attendance_worksheet = spreadsheet.worksheet("Attendance")
 except Exception as e:
