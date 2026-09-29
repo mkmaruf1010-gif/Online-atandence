@@ -483,7 +483,7 @@ elif menu == "View Records":
         )
 
 # -------------------------------------------------------------
-# 4. MANAGE STUDENTS (WITH MULTI-SELECT PROMOTION)
+# 4. MANAGE STUDENTS (WITH MANDATORY YEAR SELECTION & MULTI-SELECT PROMOTION)
 # -------------------------------------------------------------
 elif menu == "Manage Students":
     st.header("Student Directory & Promotion")
@@ -495,136 +495,132 @@ elif menu == "Manage Students":
             "No students registered yet or missing 'Student ID' column header in Google Sheets."
         )
     else:
-        st.subheader(" Bulk Promote Selected Students")
-        st.info("যে শিক্ষার্থীদের প্রমোট করতে চান তাদের বামপাশের বাক্সে টিক (Check mark) দিন এবং নিচে Target Year সিলেক্ট করে **'Promote Selected Students'** বাটনে চাপ দিন।")
+        st.subheader("🔍 Bulk Promote Selected Students")
 
-        # ১. ইয়ার ওয়াইজ ফিল্টার
+        # ১. বাধ্যতামূলক ইয়ার ফিল্টার (ডিফল্টভাবে ফাঁকা থাকবে)
         raw_years = (
-            df_students["Academic Year"].unique().tolist()
+            df_students["Academic Year"].dropna().unique().tolist()
             if "Academic Year" in df_students.columns
             else ["1st Year", "2nd Year", "3rd Year", "4th Year"]
         )
-        filter_year = st.selectbox(
+        
+        # ড্রপডাউনের প্রথম অপশন "-- Select Academic Year --"
+        filter_options = ["-- Select Academic Year --"] + raw_years
+        selected_filter_year = st.selectbox(
             "Filter Students by Academic Year", 
-            ["All Years"] + raw_years
+            filter_options,
+            index=0
         )
 
-        if filter_year != "All Years" and "Academic Year" in df_students.columns:
-            filtered_df = df_students[df_students["Academic Year"] == filter_year].copy()
+        # যতক্ষণ পর্যন্ত ইয়ার সিলেক্ট না করা হবে
+        if selected_filter_year == "-- Select Academic Year --":
+            st.info("👆 অনুগ্রহ করে স্টুডেন্ট লিস্ট দেখতে এবং প্রমোট করতে উপরে একটি **Academic Year** সিলেক্ট করুন।")
         else:
-            filtered_df = df_students.copy()
+            filtered_df = df_students[df_students["Academic Year"] == selected_filter_year].copy()
 
-        st.write(f"Showing **{len(filtered_df)}** student(s)")
+            st.write(f"Showing **{len(filtered_df)}** student(s) for **{selected_filter_year}**")
 
-        # ২. স্টুডেন্ট লিস্ট এবং চেকবক্স দিয়ে সিলেক্ট করার ব্যবস্থা
-        if filtered_df.empty:
-            st.warning("No students found for the selected Academic Year.")
-        else:
-            year_map = {
-                "1st Year": "2nd Year",
-                "2nd Year": "3rd Year",
-                "3rd Year": "4th Year",
-                "4th Year": "Graduated"
-            }
+            # ২. স্টুডেন্ট লিস্ট এবং প্রমোশন ফর্ম
+            if filtered_df.empty:
+                st.warning(f"No students found for {selected_filter_year}.")
+            else:
+                year_map = {
+                    "1st Year": "2nd Year",
+                    "2nd Year": "3rd Year",
+                    "3rd Year": "4th Year",
+                    "4th Year": "Graduated"
+                }
 
-            # ফর্ম ব্যবহার করে একাধিক সিলেক্ট ও একক বাটন
-            with st.form("bulk_promotion_form"):
-                # হেডার
-                h_col1, h_col2, h_col3, h_col4, h_col5 = st.columns([1, 2, 3, 2, 2])
-                with h_col1:
-                    st.markdown("**Select**")
-                with h_col2:
-                    st.markdown("**Student ID**")
-                with h_col3:
-                    st.markdown("**Name**")
-                with h_col4:
-                    st.markdown("**Session**")
-                with h_col5:
-                    st.markdown("**Current Year**")
+                with st.form("bulk_promotion_form"):
+                    # হেডার কলাম
+                    h_col1, h_col2, h_col3, h_col4, h_col5 = st.columns([1, 2, 3, 2, 2])
+                    with h_col1:
+                        st.markdown("**Select**")
+                    with h_col2:
+                        st.markdown("**Student ID**")
+                    with h_col3:
+                        st.markdown("**Name**")
+                    with h_col4:
+                        st.markdown("**Session**")
+                    with h_col5:
+                        st.markdown("**Current Year**")
 
-                st.markdown("---")
+                    st.markdown("---")
 
-                selected_student_ids = []
+                    selected_student_ids = []
 
-                # প্রতিটি স্টুডেন্টের জন্য চেকবক্স
-                for index, row in filtered_df.iterrows():
-                    s_id = str(row["Student ID"]).strip()
-                    s_name = str(row["Name"]).strip()
-                    s_session = str(row.get("Session", "")).strip()
-                    curr_year = str(row.get("Academic Year", "1st Year")).strip()
+                    # নির্দিষ্ট ইয়ারের স্টুডেন্টদের লিস্ট দেখানো
+                    for index, row in filtered_df.iterrows():
+                        s_id = str(row["Student ID"]).strip()
+                        s_name = str(row["Name"]).strip()
+                        s_session = str(row.get("Session", "")).strip()
+                        curr_year = str(row.get("Academic Year", "")).strip()
 
-                    col1, col2, col3, col4, col5 = st.columns([1, 2, 3, 2, 2])
-                    
-                    with col1:
-                        # টিক মার্ক দিয়ে স্টুডেন্ট সিলেক্ট করা
-                        is_selected = st.checkbox(
-                            "Select", 
-                            value=False, 
-                            key=f"promote_chk_{s_id}", 
-                            label_visibility="collapsed"
+                        col1, col2, col3, col4, col5 = st.columns([1, 2, 3, 2, 2])
+                        
+                        with col1:
+                            is_selected = st.checkbox(
+                                "Select", 
+                                value=False, 
+                                key=f"promote_chk_{s_id}", 
+                                label_visibility="collapsed"
+                            )
+                        with col2:
+                            st.write(s_id)
+                        with col3:
+                            st.write(f"**{s_name}**")
+                        with col4:
+                            st.write(s_session)
+                        with col5:
+                            st.write(curr_year)
+
+                        if is_selected:
+                            selected_student_ids.append(s_id)
+
+                    st.markdown("---")
+
+                    # প্রমোশনের টার্গেট ইয়ার সিলেক্ট করা (অটোমেটিক পরবর্তী ইয়ার ক্যাচ করবে)
+                    col_target, col_btn = st.columns([2, 2])
+                    with col_target:
+                        default_target = year_map.get(selected_filter_year, "2nd Year")
+                        target_options = ["1st Year", "2nd Year", "3rd Year", "4th Year", "Graduated"]
+                        default_index = target_options.index(default_target) if default_target in target_options else 1
+
+                        promote_to_year = st.selectbox(
+                            "Promote Selected To:",
+                            target_options,
+                            index=default_index
                         )
-                    with col2:
-                        st.write(s_id)
-                    with col3:
-                        st.write(f"**{s_name}**")
-                    with col4:
-                        st.write(s_session)
-                    with col5:
-                        st.write(curr_year)
 
-                    if is_selected:
-                        selected_student_ids.append(s_id)
+                    with col_btn:
+                        st.write("")
+                        st.write("")
+                        submit_promote = st.form_submit_button("🎓 Promote Selected Students", type="primary", use_container_width=True)
 
-                st.markdown("---")
+                    if submit_promote:
+                        if not selected_student_ids:
+                            st.warning("⚠️️ অনুগ্রহ করে অন্তত একজন স্টুডেন্ট সিলেক্ট করুন যাকে প্রমোট করতে চান।")
+                        else:
+                            df_students.loc[
+                                df_students["Student ID"].astype(str).str.strip().isin(selected_student_ids),
+                                "Academic Year"
+                            ] = promote_to_year
 
-                # প্রমোশনের টার্গেট ইয়ার সিলেক্ট করা
-                col_target, col_btn = st.columns([2, 2])
-                with col_target:
-                    # বাই ডিফল্ট পরবর্তী ইয়ার সাজেস্ট করবে
-                    default_target = year_map.get(filter_year, "2nd Year") if filter_year != "All Years" else "2nd Year"
-                    target_options = ["1st Year", "2nd Year", "3rd Year", "4th Year", "Graduated"]
-                    default_index = target_options.index(default_target) if default_target in target_options else 1
+                            rows_to_save = [df_students.columns.tolist()] + df_students.values.tolist()
 
-                    promote_to_year = st.selectbox(
-                        "Promote Selected To:",
-                        target_options,
-                        index=default_index
-                    )
-
-                with col_btn:
-                    st.write("") # স্পেসিং এর জন্য
-                    st.write("")
-                    submit_promote = st.form_submit_button("🎓 Promote Selected Students", type="primary", use_container_width=True)
-
-                # একক বাটন চাপার পর একসাথে আপডেট হওয়া
-                if submit_promote:
-                    if not selected_student_ids:
-                        st.warning(" অনুগ্রহ করে অন্তত একজন স্টুডেন্ট সিলেক্ট করুন যাকে প্রমোট করতে চান।")
-                    else:
-                        # সিলেক্ট করা স্টুডেন্টদের নতুন ইয়ারে সেট করা
-                        df_students.loc[
-                            df_students["Student ID"].astype(str).str.strip().isin(selected_student_ids),
-                            "Academic Year"
-                        ] = promote_to_year
-
-                        rows_to_save = [df_students.columns.tolist()] + df_students.values.tolist()
-
-                        try:
-                            students_worksheet.clear()
-                            students_worksheet.update(rows_to_save)
-                            
-                            # ক্যাশ ক্লিয়ার করা
-                            st.cache_data.clear()
-                            
-                            st.success(f" Successfully promoted {len(selected_student_ids)} student(s) to **{promote_to_year}**!")
-                            st.rerun()
-                        except Exception as e:
-                            st.error(f"Error updating Google Sheets: {e}")
+                            try:
+                                students_worksheet.clear()
+                                students_worksheet.update(rows_to_save)
+                                st.cache_data.clear()
+                                st.success(f"🎉 Successfully promoted {len(selected_student_ids)} student(s) to **{promote_to_year}**!")
+                                st.rerun()
+                            except Exception as e:
+                                st.error(f"Error updating Google Sheets: {e}")
 
         st.markdown("---")
 
         # ৩. Delete Student Section
-        st.subheader(" Delete a Student")
+        st.subheader("🗑️ Delete a Student")
         del_id = st.selectbox(
             "Select Student ID to remove",
             df_students["Student ID"].astype(str).values,
@@ -639,7 +635,6 @@ elif menu == "Manage Students":
                 st.rerun()
             else:
                 st.error("Student ID not found in sheet.")
-
 # -------------------------------------------------------------
 # 5. STUDENT PERCENTAGE CHECKER
 # -------------------------------------------------------------
