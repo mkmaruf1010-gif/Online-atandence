@@ -1,4 +1,4 @@
-import datetime
+from datetime import date, datetime, timedelta
 import random
 import gspread
 from google.oauth2.service_account import Credentials
@@ -43,7 +43,42 @@ except Exception as e:
     st.stop()
 
 
-# --- CACHED DATA LOADING FUNCTIONS (Rate Limit / API Quota Error 429 রোধ করার জন্য) ---
+# --- GOOGLE SHEETS ACTIVE SESSION HELPERS ---
+def get_active_session_ws():
+    try:
+        return sheet.worksheet("Active_Session")
+    except:
+        ws = sheet.add_worksheet(title="Active_Session", rows=2, cols=10)
+        ws.append_row(["Code", "Course", "Year", "MaxLimit", "StartTime", "ValidMins"])
+        return ws
+
+def get_current_session():
+    try:
+        ws = get_active_session_ws()
+        data = ws.get_all_records()
+        if data:
+            return data[0]
+    except:
+        pass
+    return None
+
+def save_active_session(code, course, year, max_limit, valid_mins):
+    ws = get_active_session_ws()
+    ws.clear()
+    ws.append_row(["Code", "Course", "Year", "MaxLimit", "StartTime", "ValidMins"])
+    start_time_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    ws.append_row([code, course, year, max_limit, start_time_str, valid_mins])
+
+def clear_active_session():
+    try:
+        ws = get_active_session_ws()
+        ws.clear()
+        ws.append_row(["Code", "Course", "Year", "MaxLimit", "StartTime", "ValidMins"])
+    except:
+        pass
+
+
+# --- CACHED DATA LOADING FUNCTIONS ---
 
 @st.cache_data(ttl=60)
 def load_students():
@@ -78,7 +113,6 @@ def load_courses():
 
 st.title("OASIS")
 st.markdown("---")
-
 # Sidebar Navigation
 menu = st.sidebar.selectbox(
     "Navigation",
@@ -124,36 +158,51 @@ if menu in protected_pages:
             st.session_state.authenticated = False
             st.rerun()
 # -------------------------------------------------------------
-# 0. GIVE ATTENDANCE (Student Portal - Public & Outside Admin)
+# 0. GIVE ATTENDANCE (Student Portal - Public & Cloud Synced)
 # -------------------------------------------------------------
 if menu == "Give Attendance":
     st.header("📱 Student Fingerprint & Attendance Portal")
     st.info("শিক্ষকের কাছ থেকে প্রাপ্ত সেশন কোড দিয়ে আপনার হাজিরা নিশ্চিত করুন।")
 
     df_students = load_students()
+    active_session = get_current_session()
 
-    if "active_code" not in st.session_state:
+    if not active_session or not active_session.get("Code"):
         st.warning("⚠️ শিক্ষক এখনও আজকের কোনো সেশন কোড চালু করেননি। দয়া করে অপেক্ষা করুন।")
     else:
-        elapsed = datetime.now() - st.session_state["code_time"]
-        valid_m = st.session_state.get("valid_mins", 5)
+        code_time = datetime.strptime(active_session["StartTime"], "%Y-%m-%d %H:%M:%S")
+        valid_m = int(active_session["ValidMins"])
+        elapsed = datetime.now() - code_time
         remaining = (valid_m * 60) - elapsed.total_seconds()
-        current_count = st.session_state.get("submitted_count", 0)
-        max_l = st.session_state.get("max_limit", 0)
+        
+        # গুগল শিট থেকে বর্তমান কোর্সের আজকের উপস্থিতি কাউন্ট করা
+        df_att = load_attendance()
+        today_str = date.today().strftime("%Y-%m-%d")
+        
+        current_course = active_session["Course"]
+        if not df_att.empty and "Date" in df_att.columns and "Course" in df_att.columns:
+            submitted_rows = df_att[(df_att["Date"].astype(str).str.strip() == today_str) & (df_att["Course"].astype(str).str.strip() == str(current_course).strip())]
+            current_count = len(submitted_rows)
+            submitted_ids = submitted_rows["Student ID"].astype(str).str.strip().tolist() if "Student ID" in submitted_rows.columns else []
+        else:
+            current_count = 0
+            submitted_ids = []
 
-        st.markdown(f"**Active Course:** {st.session_state['code_course']} | **Slots Left:** {max_l - current_count}")
+        max_l = int(active_session["MaxLimit"])
+
+        st.markdown(f"**Active Course:** {current_course} | **Slots Left:** {max_l - current_count}")
 
         if remaining > 0 and current_count < max_l:
             entered_code = st.text_input("Enter Session Code:").strip()
 
             if entered_code:
-                if entered_code == st.session_state["active_code"]:
+                if entered_code == str(active_session["Code"]):
                     st.success("✅ Code Verified Successfully!")
                     
                     student_id_input = st.text_input("Enter Your Student ID / Roll:").strip()
 
                     if student_id_input:
-                        if student_id_input in st.session_state.get("submitted_ids", []):
+                        if student_id_input in submitted_ids:
                             st.error("❌ এই স্টুডেন্ট আইডির হাজিরা ইতিমধ্যে এই সেশনে রেকর্ড করা হয়েছে!")
                         else:
                             matched_st = df_students[df_students["Student ID"].astype(str).str.strip() == student_id_input]
@@ -185,12 +234,10 @@ if menu == "Give Attendance":
                                 components.html(biometric_html, height=140)
 
                                 if st.button("Confirm & Submit Attendance", type="primary"):
-                                    if st.session_state["submitted_count"] < st.session_state["max_limit"]:
-                                        current_date = date.today().strftime("%Y-%m-%d")
-                                        
+                                    if current_count < max_l:
                                         new_row = [
-                                            str(current_date),
-                                            str(st.session_state["code_course"]),
+                                            str(today_str),
+                                            str(current_course),
                                             str(student_id_input),
                                             str(student_name),
                                             "Present"
@@ -198,15 +245,20 @@ if menu == "Give Attendance":
                                         attendance_worksheet.append_row(new_row)
                                         st.cache_data.clear()
 
-                                        st.session_state["submitted_count"] += 1
-                                        st.session_state["submitted_ids"].append(student_id_input)
-
                                         st.success(f"🎉 অভিনন্দন! **{student_name}**-এর হাজিরা সফলভাবে রেকর্ড করা হয়েছে।")
                                         st.balloons()
+                                        st.rerun()
                                     else:
                                         st.error("⚠️ এই সেশনের নির্ধারিত উপস্থিতি সীমা (Max Limit) শেষ হয়ে গেছে!")
+                    else:
+                        pass
+                else:
+                    st.error("❌ ভুল সেশন কোড দিয়েছেন! সঠিক কোডটি দিন।")
+        else:
+            st.error("⏰ সেশনের সময়সীমা শেষ অথবা নির্ধারিত শিক্ষার্থী সংখ্যা পূরণ হয়ে গেছে।")
+
 # -------------------------------------------------------------
-# 1. MARK ATTENDANCE (Teacher Portal - Code & Session Generator)
+# 1. MARK ATTENDANCE (Teacher Portal - Cloud Synced)
 # -------------------------------------------------------------
 elif menu == "Mark Attendance":
     st.header("👨‍🏫 Teacher Portal: Attendance Session Control")
@@ -265,43 +317,48 @@ elif menu == "Mark Attendance":
 
             if st.button("🚀 Start Class Session & Generate Code", type="primary", use_container_width=True):
                 generated_code = f"GEO-{random.randint(1000, 9999)}"
-                
-                st.session_state["active_code"] = generated_code
-                st.session_state["code_time"] = datetime.datetime.now()
-                st.session_state["code_course"] = selected_course
-                st.session_state["code_year"] = selected_year
-                st.session_state["max_limit"] = max_limit
-                st.session_state["valid_mins"] = time_limit_mins
-                st.session_state["submitted_count"] = 0
-                st.session_state["submitted_ids"] = []
+                save_active_session(generated_code, selected_course, selected_year, max_limit, time_limit_mins)
                 
                 st.success(f"✅ New Session Started for **{selected_course}**! Code: **{generated_code}**")
                 st.balloons()
+                st.rerun()
 
-            if "active_code" in st.session_state:
+            active_session = get_current_session()
+            if active_session and active_session.get("Code"):
                 st.markdown("---")
                 st.subheader("📊 Live Attendance Session Dashboard")
                 
-                valid_m = st.session_state.get("valid_mins", 5)
-                elapsed = datetime.datetime.now() - st.session_state["code_time"]
+                code_time = datetime.strptime(active_session["StartTime"], "%Y-%m-%d %H:%M:%S")
+                valid_m = int(active_session["ValidMins"])
+                elapsed = datetime.now() - code_time
                 remaining = (valid_m * 60) - elapsed.total_seconds()
-                current_count = st.session_state.get("submitted_count", 0)
-                max_l = st.session_state.get("max_limit", 0)
+                
+                df_att = load_attendance()
+                today_str = date.today().strftime("%Y-%m-%d")
+                current_course = active_session["Course"]
+                
+                if not df_att.empty and "Date" in df_att.columns and "Course" in df_att.columns:
+                    submitted_rows = df_att[(df_att["Date"].astype(str).str.strip() == today_str) & (df_att["Course"].astype(str).str.strip() == str(current_course).strip())]
+                    current_count = len(submitted_rows)
+                else:
+                    current_count = 0
+
+                max_l = int(active_session["MaxLimit"])
                 
                 m1, m2, m3, m4 = st.columns(4)
-                m1.metric("Active Session Code", st.session_state['active_code'])
-                m2.metric("Course", st.session_state['code_course'])
+                m1.metric("Active Session Code", active_session['Code'])
+                m2.metric("Course", active_session['Course'])
                 m3.metric("Present / Limit", f"{current_count} / {max_l}")
                 
                 if remaining > 0 and current_count < max_l:
                     m4.metric("Time Remaining", f"{int(remaining//60)}m {int(remaining%60)}s")
-                    st.success(f"🟢 Session is ACTIVE. Students can give attendance now in 'Give Attendance' portal using code: **{st.session_state['active_code']}**")
+                    st.success(f"🟢 Session is ACTIVE. Students can give attendance now in 'Give Attendance' portal using code: **{active_session['Code']}**")
                 else:
                     m4.metric("Status", "EXPIRED")
                     st.error("🔴 Session is CLOSED/EXPIRED (Time limit reached or Max slots filled).")
 
                 if st.button("⏹️ Force Close Active Session", type="secondary"):
-                    del st.session_state["active_code"]
+                    clear_active_session()
                     st.warning("Session closed manually by Teacher.")
                     st.rerun()
 # -------------------------------------------------------------
