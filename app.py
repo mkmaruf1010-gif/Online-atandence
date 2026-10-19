@@ -1,9 +1,10 @@
 from datetime import date
-import random
+import random  # <--- এই লাইনটি যুক্ত করতে হবে
 import gspread
 from google.oauth2.service_account import Credentials
 import pandas as pd
 import streamlit as st
+import streamlit.components.v1 as components
 
 # Page Configuration
 st.set_page_config(
