@@ -209,7 +209,6 @@ if menu == "Give Attendance":
                         st.error("❌ ভুল সেশন কোড দিয়েছেন! সঠিক কোডটি দিন।")
         else:
             st.error("⏰ সেশনের সময়সীমা শেষ অথবা নির্ধারিত শিক্ষার্থী সংখ্যা পূরণ হয়ে গেছে।")
-
 # -------------------------------------------------------------
 # 1. MARK ATTENDANCE (Teacher Portal - Code & Session Generator)
 # -------------------------------------------------------------
@@ -268,7 +267,7 @@ elif menu == "Mark Attendance":
                     help="কত মিনিটের জন্য এই কোডটি সচল থাকবে।"
                 )
 
-           if st.button("🚀 Start Class Session & Generate Code", type="primary", use_container_width=True):
+            if st.button("🚀 Start Class Session & Generate Code", type="primary", use_container_width=True):
                 generated_code = f"GEO-{random.randint(1000, 9999)}"
                 
                 st.session_state["active_code"] = generated_code
@@ -282,19 +281,13 @@ elif menu == "Mark Attendance":
                 
                 st.success(f"✅ New Session Started for **{selected_course}**! Code: **{generated_code}**")
                 st.balloons()
-                st.session_state["valid_mins"] = time_limit_mins
-                st.session_state["submitted_count"] = 0
-                st.session_state["submitted_ids"] = []
-                
-                st.success(f"✅ New Session Started for **{selected_course}**! Code: **{generated_code}**")
-                st.balloons()
 
             if "active_code" in st.session_state:
                 st.markdown("---")
                 st.subheader("📊 Live Attendance Session Dashboard")
                 
                 valid_m = st.session_state.get("valid_mins", 5)
-                elapsed = datetime.now() - st.session_state["code_time"]
+                elapsed = datetime.datetime.now() - st.session_state["code_time"]
                 remaining = (valid_m * 60) - elapsed.total_seconds()
                 current_count = st.session_state.get("submitted_count", 0)
                 max_l = st.session_state.get("max_limit", 0)
