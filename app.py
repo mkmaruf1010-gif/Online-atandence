@@ -188,16 +188,14 @@ if menu == "Give Attendance":
                                     if st.session_state["submitted_count"] < st.session_state["max_limit"]:
                                         current_date = date.today().strftime("%Y-%m-%d")
                                         
-                                       current_date = date.today().strftime("%Y-%m-%d")
-
-new_row = [
-    str(current_date),
-    str(st.session_state["code_course"]),
-    str(student_id_input),
-    str(student_name),
-    "Present"
-]
-attendance_worksheet.append_row(new_row)
+                                        new_row = [
+                                            str(current_date),
+                                            str(st.session_state["code_course"]),
+                                            str(student_id_input),
+                                            str(student_name),
+                                            "Present"
+                                        ]
+                                        attendance_worksheet.append_row(new_row)
                                         st.cache_data.clear()
 
                                         st.session_state["submitted_count"] += 1
@@ -207,12 +205,6 @@ attendance_worksheet.append_row(new_row)
                                         st.balloons()
                                     else:
                                         st.error("⚠️ এই সেশনের নির্ধারিত উপস্থিতি সীমা (Max Limit) শেষ হয়ে গেছে!")
-                    else:
-                        pass
-                else:
-                    st.error("❌ ভুল সেশন কোড দিয়েছেন! সঠিক কোডটি দিন।")
-        else:
-            st.error("⏰ সেশনের সময়সীমা শেষ অথবা নির্ধারিত শিক্ষার্থী সংখ্যা পূরণ হয়ে গেছে।")
 # -------------------------------------------------------------
 # 1. MARK ATTENDANCE (Teacher Portal - Code & Session Generator)
 # -------------------------------------------------------------
