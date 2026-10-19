@@ -121,9 +121,8 @@ if menu in protected_pages:
         if st.sidebar.button("Lock Admin Session"):
             st.session_state.authenticated = False
             st.rerun()
-
 # -------------------------------------------------------------
-# 0. GIVE ATTENDANCE
+# 0. GIVE ATTENDANCE (Student Portal - Public & Outside Admin)
 # -------------------------------------------------------------
 if menu == "Give Attendance":
     st.header("📱 Student Fingerprint & Attendance Portal")
@@ -131,38 +130,19 @@ if menu == "Give Attendance":
 
     df_students = load_students()
 
-    # টিচার যদি সেশন অন না করে থাকেন, তার চেক
     if "active_code" not in st.session_state:
-        st.warning("⚠️ শিক্ষক এখনও আজকের কোনো ক্লাস বা সেশন কোড চালু করেননি। দয়া করে অপেক্ষা করুন।")
-        
-        # টিচারদের সুবিধার্থে এই পেজ থেকেই চাইলে কোড সেটআপ করার একটি ছোট অপশন রেখে দিতে পারেন (ঐচ্ছিক)
-        with st.expander("👨‍🏫 Teacher Quick Session Setup"):
-            teacher_pin = st.text_input("Enter Teacher PIN to Start Session", type="password", key="quick_t_pin")
-            if teacher_pin == st.secrets.get("admin_password", "default_password"):
-                q_course = st.text_input("Course Name", value="Physical Geography")
-                q_limit = st.number_input("Max Count Limit", value=50, min_value=1)
-                if st.button("Start Quick Session"):
-                    import random
-                    from datetime import datetime
-                    st.session_state["active_code"] = f"GEO-{random.randint(1000, 9999)}"
-                    st.session_state["code_time"] = datetime.now()
-                    st.session_state["code_course"] = q_course
-                    st.session_state["max_limit"] = q_limit
-                    st.session_state["submitted_count"] = 0
-                    st.session_state["submitted_ids"] = []
-                    st.success(f"Session Started! Code: **{st.session_state['active_code']}**")
-                    st.rerun()
+        st.warning("⚠️ শিক্ষক এখনও আজকের কোনো সেশন কোড চালু করেননি। দয়া করে অপেক্ষা করুন।")
     else:
-        from datetime import datetime, timedelta
         elapsed = datetime.now() - st.session_state["code_time"]
-        remaining = 300 - elapsed.total_seconds() # ৫ মিনিট সময়সীমা
+        valid_m = st.session_state.get("valid_mins", 5)
+        remaining = (valid_m * 60) - elapsed.total_seconds()
         current_count = st.session_state.get("submitted_count", 0)
         max_l = st.session_state.get("max_limit", 0)
 
         st.markdown(f"**Active Course:** {st.session_state['code_course']} | **Slots Left:** {max_l - current_count}")
 
         if remaining > 0 and current_count < max_l:
-            entered_code = st.text_input("Enter 5-Min Session Code:").strip()
+            entered_code = st.text_input("Enter Session Code:").strip()
 
             if entered_code:
                 if entered_code == st.session_state["active_code"]:
@@ -171,7 +151,6 @@ if menu == "Give Attendance":
                     student_id_input = st.text_input("Enter Your Student ID / Roll:").strip()
 
                     if student_id_input:
-                        # প্রক্সি বা ডুপ্লিকেট রোধ (এক আইডি দুবার নেবে না)
                         if student_id_input in st.session_state.get("submitted_ids", []):
                             st.error("❌ এই স্টুডেন্ট আইডির হাজিরা ইতিমধ্যে এই সেশনে রেকর্ড করা হয়েছে!")
                         else:
@@ -183,7 +162,6 @@ if menu == "Give Attendance":
                                 student_name = matched_st.iloc[0]["Name"]
                                 st.write(f"স্বাগতম, **{student_name}**! নিচে আপনার আঙুলের ছাপ বা বায়োমেট্রিক ভেরিফিকেশন সম্পন্ন করুন:")
 
-                                # ফোনের ফিঙ্গারপ্রিন্ট বা বায়োমেট্রিক ট্রিগার করার কাস্টম HTML/JS কম্পোনেন্ট
                                 biometric_html = """
                                 <div style="text-align: center; padding: 15px; background: #f0f2f6; border-radius: 8px; border: 1px dashed #ff4b4b;">
                                     <p style="font-size: 14px; color: #31333F; margin-bottom: 10px;">আপনার ফোনের ফিঙ্গারপ্রিন্ট সেন্সর ব্যবহার করুন</p>
@@ -202,16 +180,12 @@ if menu == "Give Attendance":
                                 }
                                 </script>
                                 """
-                                import streamlit.components.v1 as components
                                 components.html(biometric_html, height=140)
 
                                 if st.button("Confirm & Submit Attendance", type="primary"):
                                     if st.session_state["submitted_count"] < st.session_state["max_limit"]:
-                                        df_attendance = load_attendance()
                                         current_date = date.today().strftime("%Y-%m-%d")
-                                        current_time = datetime.now().strftime("%H:%M:%S")
-
-                                        # গুগল শিটে ডেটা সেভ করা
+                                        
                                         new_row = [
                                             str(current_date),
                                             str(st.session_state["code_course"]),
@@ -222,7 +196,6 @@ if menu == "Give Attendance":
                                         attendance_worksheet.append_row(new_row)
                                         st.cache_data.clear()
 
-                                        # কাউন্ট এবং আইডি ট্র্যাক আপডেট করা
                                         st.session_state["submitted_count"] += 1
                                         st.session_state["submitted_ids"].append(student_id_input)
 
@@ -230,26 +203,15 @@ if menu == "Give Attendance":
                                         st.balloons()
                                     else:
                                         st.error("⚠️ এই সেশনের নির্ধারিত উপস্থিতি সীমা (Max Limit) শেষ হয়ে গেছে!")
-                else:
-                    st.error("❌ ভুল সেশন কোড দিয়েছো! সঠিক কোডটি দিন।")
+                    else:
+                        st.error("❌ ভুল সেশন কোড দিয়েছেন! সঠিক কোডটি দিন।")
         else:
             st.error("⏰ সেশনের সময়সীমা শেষ অথবা নির্ধারিত শিক্ষার্থী সংখ্যা পূরণ হয়ে গেছে।")
+
 # -------------------------------------------------------------
-# 1. MARK ATTENDANCE
+# 1. MARK ATTENDANCE (Teacher Portal - Code & Session Generator)
 # -------------------------------------------------------------
 elif menu == "Mark Attendance":
-    st.header("👨‍🏫 Teacher Portal: Attendance Session Control")
-
-    df_students = load_students()
-    df_courses = load_courses()
-
-    portal_mode = st.radio(
-        "Select Portal", 
-        ["Teacher: Setup Session", "Student: Give Attendance"], 
-        horizontal=True
-    )
-
-   elif menu == "Mark Attendance":
     st.header("👨‍🏫 Teacher Portal: Attendance Session Control")
     st.info("এখান থেকে শিক্ষকেরা নতুন ক্লাসের জন্য সেশন কোড এবং কাউন্ট লিমিট সেটআপ ও নিয়ন্ত্রণ করতে পারবেন।")
 
@@ -259,7 +221,6 @@ elif menu == "Mark Attendance":
     if df_students.empty or "Student ID" not in df_students.columns:
         st.warning("⚠️ গুগল শিটে কোনো স্টুডেন্ট রেকর্ড পাওয়া যায়নি! অনুগ্রহ করে আগে স্টুডেন্ট রেজিস্টার করুন।")
     else:
-        # ১. অ্যাকাডেমিক ইয়ার সিলেক্ট করা
         raw_years = (
             df_students["Academic Year"].unique().tolist()
             if "Academic Year" in df_students.columns
@@ -272,7 +233,6 @@ elif menu == "Mark Attendance":
         if selected_year == "-- Select Academic Year --":
             st.info("👆 সেশন কোড জেনারেট করতে উপরে একটি Academic Year সিলেক্ট করুন।")
         else:
-            # ২. কোর্স সিলেক্ট করা
             available_courses = []
             if not df_courses.empty and "Academic Year" in df_courses.columns and "Course Title" in df_courses.columns:
                 filtered_courses = df_courses[
@@ -290,7 +250,6 @@ elif menu == "Mark Attendance":
 
             col_cfg1, col_cfg2 = st.columns(2)
             with col_cfg1:
-                # ক্লাসে উপস্থিত আনুমানিক স্টুডেন্ট সংখ্যা অনুযায়ী কাউন্ট লিমিট
                 max_limit = st.number_input(
                     "Set Maximum Attendance Count Limit (উপস্থিতি সীমা)", 
                     min_value=1, 
@@ -307,12 +266,7 @@ elif menu == "Mark Attendance":
                     help="কত মিনিটের জন্য এই কোডটি সচল থাকবে।"
                 )
 
-            # ৩. কোড জেনারেট বাটন
             if st.button("🚀 Start Class Session & Generate Code", type="primary", use_container_width=True):
-                import random
-                from datetime import datetime
-                
-                # ৪-ডিজিটের ইউনিক সেশন কোড
                 generated_code = f"GEO-{random.randint(1000, 9999)}"
                 
                 st.session_state["active_code"] = generated_code
@@ -322,26 +276,21 @@ elif menu == "Mark Attendance":
                 st.session_state["max_limit"] = max_limit
                 st.session_state["valid_mins"] = time_limit_mins
                 st.session_state["submitted_count"] = 0
-                st.session_state["submitted_ids"] = [] # প্রক্সি রোধে আইডি ট্র্যাকিং
+                st.session_state["submitted_ids"] = []
                 
                 st.success(f"✅ New Session Started for **{selected_course}**! Code: **{generated_code}**")
                 st.balloons()
 
-            # ---------------------------------------------------------
-            # লাইভ সেশন স্ট্যাটাস ও ট্র্যাকিং ড্যাশবোর্ড
-            # ---------------------------------------------------------
             if "active_code" in st.session_state:
                 st.markdown("---")
                 st.subheader("📊 Live Attendance Session Dashboard")
                 
-                from datetime import datetime, timedelta
                 valid_m = st.session_state.get("valid_mins", 5)
                 elapsed = datetime.now() - st.session_state["code_time"]
                 remaining = (valid_m * 60) - elapsed.total_seconds()
                 current_count = st.session_state.get("submitted_count", 0)
                 max_l = st.session_state.get("max_limit", 0)
                 
-                # লাইভ ম্যাট্রিক্স কার্ড
                 m1, m2, m3, m4 = st.columns(4)
                 m1.metric("Active Session Code", st.session_state['active_code'])
                 m2.metric("Course", st.session_state['code_course'])
@@ -354,9 +303,10 @@ elif menu == "Mark Attendance":
                     m4.metric("Status", "EXPIRED")
                     st.error("🔴 Session is CLOSED/EXPIRED (Time limit reached or Max slots filled).")
 
-                # ম্যানুয়ালি সেশন বন্ধ করার অপশন
                 if st.button("⏹️ Force Close Active Session", type="secondary"):
                     del st.session_state["active_code"]
+                    st.warning("Session closed manually by Teacher.")
+                    st.rerun()
 # -------------------------------------------------------------
 # 2. REGISTER STUDENT (WITH BULK EXCEL / CSV UPLOAD)
 # -------------------------------------------------------------
