@@ -1,5 +1,5 @@
-from datetime import date
-import random  # <--- এই লাইনটি যুক্ত করতে হবে
+import datetime
+import random
 import gspread
 from google.oauth2.service_account import Credentials
 import pandas as pd
@@ -268,14 +268,20 @@ elif menu == "Mark Attendance":
                     help="কত মিনিটের জন্য এই কোডটি সচল থাকবে।"
                 )
 
-            if st.button("🚀 Start Class Session & Generate Code", type="primary", use_container_width=True):
+           if st.button("🚀 Start Class Session & Generate Code", type="primary", use_container_width=True):
                 generated_code = f"GEO-{random.randint(1000, 9999)}"
                 
                 st.session_state["active_code"] = generated_code
-                st.session_state["code_time"] = datetime.now()
+                st.session_state["code_time"] = datetime.datetime.now()
                 st.session_state["code_course"] = selected_course
                 st.session_state["code_year"] = selected_year
                 st.session_state["max_limit"] = max_limit
+                st.session_state["valid_mins"] = time_limit_mins
+                st.session_state["submitted_count"] = 0
+                st.session_state["submitted_ids"] = []
+                
+                st.success(f"✅ New Session Started for **{selected_course}**! Code: **{generated_code}**")
+                st.balloons()
                 st.session_state["valid_mins"] = time_limit_mins
                 st.session_state["submitted_count"] = 0
                 st.session_state["submitted_ids"] = []
