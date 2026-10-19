@@ -122,33 +122,34 @@ if menu in protected_pages:
             st.rerun()
 
 # -------------------------------------------------------------
-# 1. MARK ATTENDANCE
+# 1. MARK ATTENDANCE (Count-Based Limit + Session Code + ID Binding)
 # -------------------------------------------------------------
-if menu == "Mark Attendance":
-    st.header("Mark Daily Attendance")
+elif menu == "Mark Attendance":
+    st.header("🔒 Secure Count-Based Attendance Portal")
 
     df_students = load_students()
     df_courses = load_courses()
 
-    if df_students.empty or "Student ID" not in df_students.columns:
-        st.warning(
-            "No students found or missing 'Student ID' column in the 'Students' sheet! Please check your Google Sheet headers: [Student ID, Name, Session, Academic Year]."
-        )
-    else:
+    portal_mode = st.radio(
+        "Select Portal", 
+        ["Teacher: Setup Session", "Student: Give Attendance"], 
+        horizontal=True
+    )
+
+    # ---------------------------------------------------------
+    # PART A: TEACHER PANEL (Set Code, Time & Max Count Limit)
+    # ---------------------------------------------------------
+    if portal_mode == "Teacher: Setup Session":
+        st.subheader("👨‍🏫 Teacher Session & Count Configuration")
+        
         raw_years = (
             df_students["Academic Year"].unique().tolist()
             if "Academic Year" in df_students.columns
             else ["1st Year", "2nd Year", "3rd Year", "4th Year"]
         )
-        academic_years = ["-- Select Academic Year --"] + raw_years
+        selected_year = st.selectbox("Select Academic Year", ["-- Select Academic Year --"] + raw_years)
 
-        selected_year = st.selectbox(
-            "Select Academic Year to Mark", academic_years, index=0
-        )
-
-        if selected_year == "-- Select Academic Year --":
-            st.info(" Please select an Academic Year above to display courses and student list.")
-        else:
+        if selected_year != "-- Select Academic Year --":
             available_courses = []
             if not df_courses.empty and "Academic Year" in df_courses.columns and "Course Title" in df_courses.columns:
                 filtered_courses = df_courses[
@@ -159,119 +160,102 @@ if menu == "Mark Attendance":
             if not available_courses:
                 available_courses = ["General Course"]
 
-            selected_course = st.selectbox("Select Course Code & Title", available_courses)
+            selected_course = st.selectbox("Select Course Title", available_courses)
+            
+            # শিক্ষকের সেট করা কাউন্ট লিমিট (যেমন: ক্লাসে কতজন থাকতে পারে বা ম্যাক্সিমাম কতজন দিতে পারবে)
+            max_limit = st.number_input("Set Maximum Attendance Count Limit", min_value=1, max_value=200, value=50)
 
-            filtered_students = df_students.copy()
-            if "Academic Year" in df_students.columns:
-                filtered_students = df_students[
-                    df_students["Academic Year"] == selected_year
-                ]
+            if st.button("Generate Secure Session Code", type="primary"):
+                import random
+                from datetime import datetime
+                
+                generated_code = f"GEO-{random.randint(1000, 9999)}"
+                
+                # সেশন স্টেট ইনিশিয়ালাইজ করা
+                st.session_state["active_code"] = generated_code
+                st.session_state["code_time"] = datetime.now()
+                st.session_state["code_course"] = selected_course
+                st.session_state["code_year"] = selected_year
+                st.session_state["max_limit"] = max_limit
+                st.session_state["submitted_count"] = 0
+                st.session_state["submitted_ids"] = [] # ডুপ্লিকেট বা প্রক্সি রোধে আইডি ট্র্যাক করার লিস্ট
+                
+                st.success(f"✅ Session Started! Code: **{generated_code}** | Course: **{selected_course}** | Max Limit: **{max_limit}** students.")
 
-            att_date = st.date_input("Select Date", value=date.today())
+            if "active_code" in st.session_state:
+                from datetime import datetime, timedelta
+                elapsed = datetime.now() - st.session_state["code_time"]
+                remaining = 300 - elapsed.total_seconds() # ৫ মিনিট (৩০০ সেকেন্ড)
+                current_count = st.session_state.get("submitted_count", 0)
+                max_l = st.session_state.get("max_limit", 0)
+                
+                st.info(f"📊 Active Code: **{st.session_state['active_code']}** | Submitted: **{current_count} / {max_l}** | Time left: **{int(remaining//60)}m {int(remaining%60)}s**")
 
-            st.markdown(f"### Student List for {selected_year} - {selected_course}")
-            st.info("Check the box next to the student if they are **Present**. (Unchecked means **Absent**)")
+    # ---------------------------------------------------------
+    # PART B: STUDENT PORTAL (Code + Count Check + ID Binding)
+    # ---------------------------------------------------------
+    elif portal_mode == "Student: Give Attendance":
+        st.subheader(" Student Attendance Portal")
+        
+        entered_code = st.text_input("Enter Session Code provided by Teacher:").strip()
 
-            sort_order = st.selectbox(
-                "Sort Student ID by:",
-                ["Ascending (Low to High)", "Descending (High to Low)"],
-                key="attendance_id_sort",
-            )
-
-            if not filtered_students.empty and "Student ID" in filtered_students.columns:
-                try:
-                    filtered_students["_sort_id"] = pd.to_numeric(filtered_students["Student ID"])
-                except Exception:
-                    filtered_students["_sort_id"] = filtered_students["Student ID"]
-
-                if sort_order == "Ascending (Low to High)":
-                    filtered_students = filtered_students.sort_values(by="_sort_id", ascending=True)
-                elif sort_order == "Descending (High to Low)":
-                    filtered_students = filtered_students.sort_values(by="_sort_id", ascending=False)
-
-                if "_sort_id" in filtered_students.columns:
-                    filtered_students = filtered_students.drop(columns=["_sort_id"])
-
-            if filtered_students.empty:
-                st.warning(f"No students registered under {selected_year}.")
-            else:
-                with st.form("attendance_form"):
-                    attendance_status = {}
-
-                    h_col1, h_col2, h_col3, h_col4 = st.columns([1, 2, 3, 2])
-                    with h_col1:
-                        st.markdown("**Status**")
-                    with h_col2:
-                        st.markdown("**Student ID**")
-                    with h_col3:
-                        st.markdown("**Name**")
-                    with h_col4:
-                        st.markdown("**Session**")
-
-                    st.markdown("---")
-
-                    for index, row in filtered_students.iterrows():
-                        s_id = str(row["Student ID"]).strip()
-                        s_name = str(row["Name"]).strip()
-                        s_session = (
-                            str(row["Session"]).strip()
-                            if "Session" in df_students.columns
-                            else ""
-                        )
-
-                        col1, col2, col3, col4 = st.columns([1, 2, 3, 2])
-                        with col1:
-                            is_present = st.checkbox(
-                                "Present",
-                                value=False,
-                                key=f"att_{s_id}",
-                                label_visibility="collapsed",
-                            )
-                        with col2:
-                            st.write(f"{s_id}")
-                        with col3:
-                            st.write(f"**{s_name}**")
-                        with col4:
-                            st.write(f"{s_session}")
-
-                        attendance_status[s_id] = {
-                            "Name": s_name,
-                            "Status": "Present" if is_present else "Absent",
-                        }
-
-                    st.markdown("---")
-                    submitted = st.form_submit_button("Save Attendance", use_container_width=True)
-
-                    if submitted:
-                        df_attendance = load_attendance()
-
-                        if not df_attendance.empty and "Date" in df_attendance.columns:
-                            rows_to_save = [
-                                df_attendance.columns.tolist()
-                            ] + df_attendance.values.tolist()
+        if entered_code:
+            if "active_code" in st.session_state and entered_code == st.session_state["active_code"]:
+                from datetime import datetime, timedelta
+                elapsed = datetime.now() - st.session_state["code_time"]
+                
+                current_count = st.session_state.get("submitted_count", 0)
+                max_l = st.session_state.get("max_limit", 0)
+                
+                # চেক ১: সময়সীমা (৫ মিনিট) এবং কাউন্ট লিমিট শেষ হয়েছে কি না
+                if elapsed <= timedelta(minutes=5) and current_count < max_l:
+                    st.success(f" Code Verified! Course: **{st.session_state['code_course']}** (Remaining slots: {max_l - current_count})")
+                    
+                    student_id_input = st.text_input("Enter Your Student ID / Roll:").strip()
+                    
+                    if student_id_input:
+                        # চেক ২: এই আইডি অলেইডি সাবমিট করেছে কি না (প্রক্সি রোধ)
+                        if student_id_input in st.session_state.get("submitted_ids", []):
+                            st.error(" Error: Attendance for this Student ID has already been recorded in this session!")
                         else:
-                            rows_to_save = [["Date", "Course", "Student ID", "Name", "Status"]]
+                            matched_st = df_students[df_students["Student ID"].astype(str).str.strip() == student_id_input]
+                            
+                            if matched_st.empty:
+                                st.error(f" No registered student found with ID '{student_id_input}'.")
+                            else:
+                                student_name = matched_st.iloc[0]["Name"]
+                                st.write(f"Welcome, **{student_name}**!")
 
-                        for s_id, data in attendance_status.items():
-                            rows_to_save.append(
-                                [
-                                    str(att_date),
-                                    str(selected_course),
-                                    str(s_id),
-                                    str(data["Name"]),
-                                    str(data["Status"]),
-                                ]
-                            )
-
-                        attendance_worksheet.clear()
-                        attendance_worksheet.update(rows_to_save)
-                        
-                        # ক্যাশ ক্লিয়ার করা
-                        st.cache_data.clear()
-                        
-                        st.success(
-                            f"Attendance successfully saved to Google Sheets for {selected_course} on {att_date}!"
-                        )
+                                if st.button("Confirm & Submit Attendance", type="primary"):
+                                    # কাউন্ট চেক রি-ভ্যালিডেশন
+                                    if st.session_state["submitted_count"] < st.session_state["max_limit"]:
+                                        df_attendance = load_attendance()
+                                        current_date = date.today().strftime("%Y-%m-%d")
+                                        current_time = datetime.now().strftime("%H:%M:%S")
+                                        
+                                        # গুগল শিটে ডেটা পাঠানো
+                                        new_row = [
+                                            str(current_date),
+                                            str(st.session_state["code_course"]),
+                                            str(student_id_input),
+                                            str(student_name),
+                                            "Present"
+                                        ]
+                                        attendance_worksheet.append_row(new_row)
+                                        st.cache_data.clear()
+                                        
+                                        # কাউন্ট এবং আইডি লিস্ট আপডেট করা
+                                        st.session_state["submitted_count"] += 1
+                                        st.session_state["submitted_ids"].append(student_id_input)
+                                        
+                                        st.success(f" Attendance successfully recorded for **{student_name}**! Total marked: {st.session_state['submitted_count']}/{max_l}")
+                                        st.balloons()
+                                    else:
+                                        st.error(" Attendance limit for this session has been reached!")
+                else:
+                    st.error(" Session code has expired (Time limit reached or Max attendance count completed).")
+            else:
+                st.error(" Invalid Session Code!")
 
 # -------------------------------------------------------------
 # 2. REGISTER STUDENT (WITH BULK EXCEL / CSV UPLOAD)
