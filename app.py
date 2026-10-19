@@ -188,14 +188,16 @@ if menu == "Give Attendance":
                                     if st.session_state["submitted_count"] < st.session_state["max_limit"]:
                                         current_date = date.today().strftime("%Y-%m-%d")
                                         
-                                        new_row = [
-                                            str(current_date),
-                                            str(st.session_state["code_course"]),
-                                            str(student_id_input),
-                                            str(student_name),
-                                            "Present"
-                                        ]
-                                        attendance_worksheet.append_row(new_row)
+                                       current_date = date.today().strftime("%Y-%m-%d")
+
+new_row = [
+    str(current_date),
+    str(st.session_state["code_course"]),
+    str(student_id_input),
+    str(student_name),
+    "Present"
+]
+attendance_worksheet.append_row(new_row)
                                         st.cache_data.clear()
 
                                         st.session_state["submitted_count"] += 1
