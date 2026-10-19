@@ -123,7 +123,7 @@ if menu in protected_pages:
             st.rerun()
 
 # -------------------------------------------------------------
-# 0. GIVE ATTENDANCE (স্টুডেন্টদের জন্য আলাদা এবং স্বাধীন পোর্টাল)
+# 0. GIVE ATTENDANCE
 # -------------------------------------------------------------
 if menu == "Give Attendance":
     st.header("📱 Student Fingerprint & Attendance Portal")
@@ -235,10 +235,10 @@ if menu == "Give Attendance":
         else:
             st.error("⏰ সেশনের সময়সীমা শেষ অথবা নির্ধারিত শিক্ষার্থী সংখ্যা পূরণ হয়ে গেছে।")
 # -------------------------------------------------------------
-# 1. MARK ATTENDANCE (Count-Based Limit + Session Code + ID Binding)
+# 1. MARK ATTENDANCE
 # -------------------------------------------------------------
-if menu == "Mark Attendance":
-    st.header("🔒 Secure Count-Based Attendance Portal")
+elif menu == "Mark Attendance":
+    st.header("👨‍🏫 Teacher Portal: Attendance Session Control")
 
     df_students = load_students()
     df_courses = load_courses()
