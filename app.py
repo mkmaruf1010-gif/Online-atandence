@@ -124,7 +124,7 @@ if menu in protected_pages:
 # -------------------------------------------------------------
 # 1. MARK ATTENDANCE (Count-Based Limit + Session Code + ID Binding)
 # -------------------------------------------------------------
-elif menu == "Mark Attendance":
+if menu == "Mark Attendance":
     st.header("🔒 Secure Count-Based Attendance Portal")
 
     df_students = load_students()
@@ -162,7 +162,6 @@ elif menu == "Mark Attendance":
 
             selected_course = st.selectbox("Select Course Title", available_courses)
             
-            # শিক্ষকের সেট করা কাউন্ট লিমিট (যেমন: ক্লাসে কতজন থাকতে পারে বা ম্যাক্সিমাম কতজন দিতে পারবে)
             max_limit = st.number_input("Set Maximum Attendance Count Limit", min_value=1, max_value=200, value=50)
 
             if st.button("Generate Secure Session Code", type="primary"):
@@ -171,21 +170,20 @@ elif menu == "Mark Attendance":
                 
                 generated_code = f"GEO-{random.randint(1000, 9999)}"
                 
-                # সেশন স্টেট ইনিশিয়ালাইজ করা
                 st.session_state["active_code"] = generated_code
                 st.session_state["code_time"] = datetime.now()
                 st.session_state["code_course"] = selected_course
                 st.session_state["code_year"] = selected_year
                 st.session_state["max_limit"] = max_limit
                 st.session_state["submitted_count"] = 0
-                st.session_state["submitted_ids"] = [] # ডুপ্লিকেট বা প্রক্সি রোধে আইডি ট্র্যাক করার লিস্ট
+                st.session_state["submitted_ids"] = []
                 
                 st.success(f"✅ Session Started! Code: **{generated_code}** | Course: **{selected_course}** | Max Limit: **{max_limit}** students.")
 
             if "active_code" in st.session_state:
                 from datetime import datetime, timedelta
                 elapsed = datetime.now() - st.session_state["code_time"]
-                remaining = 300 - elapsed.total_seconds() # ৫ মিনিট (৩০০ সেকেন্ড)
+                remaining = 300 - elapsed.total_seconds()
                 current_count = st.session_state.get("submitted_count", 0)
                 max_l = st.session_state.get("max_limit", 0)
                 
@@ -195,7 +193,7 @@ elif menu == "Mark Attendance":
     # PART B: STUDENT PORTAL (Code + Count Check + ID Binding)
     # ---------------------------------------------------------
     elif portal_mode == "Student: Give Attendance":
-        st.subheader(" Student Attendance Portal")
+        st.subheader("📱 Student Attendance Portal")
         
         entered_code = st.text_input("Enter Session Code provided by Teacher:").strip()
 
@@ -207,33 +205,29 @@ elif menu == "Mark Attendance":
                 current_count = st.session_state.get("submitted_count", 0)
                 max_l = st.session_state.get("max_limit", 0)
                 
-                # চেক ১: সময়সীমা (৫ মিনিট) এবং কাউন্ট লিমিট শেষ হয়েছে কি না
                 if elapsed <= timedelta(minutes=5) and current_count < max_l:
-                    st.success(f" Code Verified! Course: **{st.session_state['code_course']}** (Remaining slots: {max_l - current_count})")
+                    st.success(f"✅ Code Verified! Course: **{st.session_state['code_course']}** (Remaining slots: {max_l - current_count})")
                     
                     student_id_input = st.text_input("Enter Your Student ID / Roll:").strip()
                     
                     if student_id_input:
-                        # চেক ২: এই আইডি অলেইডি সাবমিট করেছে কি না (প্রক্সি রোধ)
                         if student_id_input in st.session_state.get("submitted_ids", []):
-                            st.error(" Error: Attendance for this Student ID has already been recorded in this session!")
+                            st.error("❌ Error: Attendance for this Student ID has already been recorded in this session!")
                         else:
                             matched_st = df_students[df_students["Student ID"].astype(str).str.strip() == student_id_input]
                             
                             if matched_st.empty:
-                                st.error(f" No registered student found with ID '{student_id_input}'.")
+                                st.error(f"❌ No registered student found with ID '{student_id_input}'.")
                             else:
                                 student_name = matched_st.iloc[0]["Name"]
                                 st.write(f"Welcome, **{student_name}**!")
 
                                 if st.button("Confirm & Submit Attendance", type="primary"):
-                                    # কাউন্ট চেক রি-ভ্যালিডেশন
                                     if st.session_state["submitted_count"] < st.session_state["max_limit"]:
                                         df_attendance = load_attendance()
                                         current_date = date.today().strftime("%Y-%m-%d")
                                         current_time = datetime.now().strftime("%H:%M:%S")
                                         
-                                        # গুগল শিটে ডেটা পাঠানো
                                         new_row = [
                                             str(current_date),
                                             str(st.session_state["code_course"]),
@@ -244,18 +238,33 @@ elif menu == "Mark Attendance":
                                         attendance_worksheet.append_row(new_row)
                                         st.cache_data.clear()
                                         
-                                        # কাউন্ট এবং আইডি লিস্ট আপডেট করা
                                         st.session_state["submitted_count"] += 1
                                         st.session_state["submitted_ids"].append(student_id_input)
                                         
-                                        st.success(f" Attendance successfully recorded for **{student_name}**! Total marked: {st.session_state['submitted_count']}/{max_l}")
+                                        st.success(f"🎉 Attendance successfully recorded for **{student_name}**! Total marked: {st.session_state['submitted_count']}/{max_l}")
                                         st.balloons()
                                     else:
-                                        st.error(" Attendance limit for this session has been reached!")
+                                        st.error("⚠️ Attendance limit for this session has been reached!")
                 else:
-                    st.error(" Session code has expired (Time limit reached or Max attendance count completed).")
+                    st.error("⏰ Session code has expired (Time limit reached or Max attendance count completed).")
             else:
-                st.error(" Invalid Session Code!")
+                st.error("❌ Invalid Session Code!")
+
+elif menu == "Register Student":
+    # আপনার আগের Register Student কোড এখানে থাকবে
+    pass
+
+elif menu == "Manage Students":
+    # আপনার আগের Manage Students কোড এখানে থাকবে
+    pass
+
+elif menu == "View Records":
+    # আপনার আগের View Records কোড এখানে থাকবে
+    pass
+
+elif menu == "Student Percentage Checker":
+    # আপনার আগের Student Percentage Checker কোড এখানে থাকবে
+    pass
 
 # -------------------------------------------------------------
 # 2. REGISTER STUDENT (WITH BULK EXCEL / CSV UPLOAD)
